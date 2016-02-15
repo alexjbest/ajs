@@ -95,7 +95,8 @@ X86Mem getPtrFromAddress(string addr)
       scalar = std::strtoul(bis[2].c_str(), NULL, 10);
     else
       scalar = 1;
-    uint32_t shift = (scalar == 1) ? 0 : 
+    uint32_t shift =
+      (scalar == 1) ? 0 : 
       (scalar == 2) ? 1 : 
       (scalar == 4) ? 2 : 
       (scalar == 8) ? 3 : -1;
@@ -214,7 +215,6 @@ int main(int argc, char* argv[]) {
   // After finalization the code has been send to `Assembler`. It contains
   // a handy method `make()`, which returns a pointer that points to the
   // first byte of the generated code, which is the function entry in our
-  // case.
   // case.
   void* funcPtr = a.make();
 
