@@ -156,7 +156,12 @@ void loadFuncFromFile(X86Assembler& a, char* file)
     }
     else if (parsed[0].at(0) == '.') // first char of first token is '.' so have a directive
     {
-      continue; // TODO don't ignore all directives, align shouldn't be for one
+      if (parsed[0] == ".align")
+      {
+        std::vector<std::string> args = split(parsed[1], ',');
+        a.align(kAlignCode, strtol(trim(args[0]).c_str(), NULL, 10));
+      }
+      continue; // TODO are there any more common directives that affect performance?
     }
 
     // try to deal with all manner of whitespace between label and instruction
