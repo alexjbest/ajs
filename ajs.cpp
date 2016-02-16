@@ -54,8 +54,14 @@ static inline std::string &trim(std::string &s) {
   return ltrim(rtrim(s));
 }
 
-Imm getValAsImm(string val) { // TODO deal with hex etc.
-  return Imm(std::strtoll(val.c_str(), NULL, 10));
+int64_t getVal(string val) { // TODO any other bases?
+  if (count(val.begin(), val.end(), 'x') > 0)
+    return std::strtoll(val.c_str(), NULL, 16);
+  return std::strtoll(val.c_str(), NULL, 10);
+}
+
+Imm getValAsImm(string val) {
+  return Imm(getVal(val));
 }
 
 X86GpReg getGpRegFromName(string name) {
@@ -161,7 +167,7 @@ void loadFuncFromFile(list<line>& func, X86Assembler& a, char* file)
       if (parsed[0] == ".align")
       {
         std::vector<std::string> args = split(parsed[1], ',');
-        func.insert(func.end(), (line){0, ops[0], ops[1], ops[2], ops[3], "", strtol(trim(args[0]).c_str(), NULL, 10)});
+        func.insert(func.end(), (line){0, ops[0], ops[1], ops[2], ops[3], "", getVal(args[0])});
       }
       continue; // TODO are there any more common directives that affect performance?
     }
@@ -207,7 +213,8 @@ uint64_t callFunc(void* funcPtr, JitRuntime& runtime)
 {
   // In order to run 'funcPtr' it has to be casted to the desired type.
   // Typedef is a recommended and safe way to create a function-type.
-  typedef int (*FuncType)(uint64_t*, uint64_t*, uint64_t*, uint64_t);
+  //typedef int (*FuncType)(uint64_t*, uint64_t*, uint64_t*, uint64_t);
+  typedef int (*FuncType)(uint64_t, uint64_t, uint64_t, uint64_t);
 
   // Using asmjit_cast is purely optional, it's basically a C-style cast
   // that tries to make it visible that a function-type is returned.
@@ -226,7 +233,8 @@ uint64_t callFunc(void* funcPtr, JitRuntime& runtime)
       "mov %%eax, %1\n\t": "=r" (cycles_high), "=r"
       (cycles_low):: "%rax", "%rbx", "%rcx", "%rdx");*/
 
-  uint64_t z = callableFunc(&o, &b, &c, 1);
+  //uint64_t z = callableFunc(&o, &b, &c, 1);
+  uint64_t z = callableFunc(1, 2, 3, 4);
 
   // end timing
   /*asm volatile(
@@ -239,7 +247,7 @@ uint64_t callFunc(void* funcPtr, JitRuntime& runtime)
   start = ( (cycles_high << 32) | cycles_low );
   end = ( (cycles_high1 << 32) | cycles_low1 );
 
-  //printf("z=%d\n", z);
+  printf("z=%ld\n", z);
   //printf("o=%lu\n", o); // Outputs "o=8" for and_n.
 
   runtime.release((void*)callableFunc);
