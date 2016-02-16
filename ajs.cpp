@@ -20,7 +20,13 @@ struct line {
   asmjit::Operand ops[4];
   string label;
   uint32_t align;
+  int originalIndex;
 };
+
+bool cmp(const line &a, const line &b)
+{
+  return a.originalIndex < b.originalIndex;
+}
 
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
   std::stringstream ss(s);
@@ -142,6 +148,7 @@ Operand getOpFromStr(string op, std::map<string, Label>& labels, X86Assembler& a
 
 void loadFuncFromFile(list<line>& func, X86Assembler& a, char* file)
 {
+  int index = 0;
   std::map<string, Label> labels;
 
   ifstream is(file);
@@ -158,7 +165,7 @@ void loadFuncFromFile(list<line>& func, X86Assembler& a, char* file)
     if (*parsed[0].rbegin() == ':')
     {
       string label = parsed[0].substr(0, parsed[0].size() - 1);
-      func.insert(func.end(), (line){0, ops[0], ops[1], ops[2], ops[3], label, 0});
+      func.insert(func.end(), (line){0, ops[0], ops[1], ops[2], ops[3], label, 0, index++});
 
       parsed.erase(parsed.begin());
     }
@@ -167,7 +174,7 @@ void loadFuncFromFile(list<line>& func, X86Assembler& a, char* file)
       if (parsed[0] == ".align")
       {
         std::vector<std::string> args = split(parsed[1], ',');
-        func.insert(func.end(), (line){0, ops[0], ops[1], ops[2], ops[3], "", getVal(args[0])});
+        func.insert(func.end(), (line){0, ops[0], ops[1], ops[2], ops[3], "", getVal(args[0]), index++});
       }
       continue; // TODO are there any more common directives that affect performance?
     }
@@ -205,7 +212,7 @@ void loadFuncFromFile(list<line>& func, X86Assembler& a, char* file)
     }
     for (; i < 4; i++)
       ops[i] = Operand();
-    func.insert(func.end(), (line){X86Util::getInstIdByName(parsed[0].c_str()), ops[0], ops[1], ops[2], ops[3], "", 0});
+    func.insert(func.end(), (line){X86Util::getInstIdByName(parsed[0].c_str()), ops[0], ops[1], ops[2], ops[3], "", 0, index++});
   }
 }
 
@@ -220,34 +227,49 @@ uint64_t callFunc(void* funcPtr, JitRuntime& runtime)
   // that tries to make it visible that a function-type is returned.
   FuncType callableFunc = asmjit_cast<FuncType>(funcPtr);
 
-  uint64_t cycles_high, cycles_high1, cycles_low, cycles_low1;
+  uint32_t cycles_high, cycles_high1, cycles_low, cycles_low1;
   uint64_t o, b, c, start, end;
   o = 0;
   b = 8;
   c = 24;
 
-  /*asm volatile (
+  for (int k = 0; k < 10000; k++)
+  {
+  //uint64_t z = callableFunc(&o, &b, &c, 1);
+  int64_t z = callableFunc(1, 2, 3, 4);
+  }
+
+  asm volatile (
       "CPUID\n\t"
       "RDTSC\n\t"
       "mov %%edx, %0\n\t"
-      "mov %%eax, %1\n\t": "=r" (cycles_high), "=r"
-      (cycles_low):: "%rax", "%rbx", "%rcx", "%rdx");*/
+      "mov %%eax, %1\n\t":
+      "=r" (cycles_high), "=r" (cycles_low)::
+      "%rax", "%rbx", "%rcx", "%rdx");
 
+  for (int k = 0; k < 10000; k++)
+  {
   //uint64_t z = callableFunc(&o, &b, &c, 1);
-  uint64_t z = callableFunc(1, 2, 3, 4);
+  int64_t z = callableFunc(1, 2, 3, 4);
+  }
 
   // end timing
-  /*asm volatile(
+  asm volatile(
       "RDTSCP\n\t"
       "mov %%edx, %0\n\t"
-      "mov %%eax, %1\n\t": "=r" (cycles_high1), "=r"
-      "CPUID\n\t"
-      (cycles_low1):: "%rax", "%rbx", "%rcx", "%rdx");*/
+      "mov %%eax, %1\n\t"
+      "CPUID\n\t" :
+      "=r" (cycles_high1), "=r" (cycles_low1) ::
+      "%rax", "%rbx", "%rcx", "%rdx");
 
-  start = ( (cycles_high << 32) | cycles_low );
-  end = ( (cycles_high1 << 32) | cycles_low1 );
+  start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
+  end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
+  /*cout << cycles_low << endl;
+    cout << cycles_high << endl;
+    cout << cycles_low1 << endl;
+    cout << cycles_high1 << endl;*/
 
-  printf("z=%ld\n", z);
+  //printf("z=%ld\n", z);
   //printf("o=%lu\n", o); // Outputs "o=8" for and_n.
 
   runtime.release((void*)callableFunc);
@@ -288,6 +310,25 @@ list<line> superOptimise(list<line>& func, X86Assembler& a, JitRuntime& runtime,
 
   for (int i = 0; i < 100; i++) // TODO run over all perms between from and to
   {
+    /*
+
+    // make next permutation
+    std::list<line>::iterator it2 = func.begin();
+    std::list<line>::iterator it1 = it2++;
+    std::list<line>::iterator e = func.end();
+    for (;;)
+    {
+    std::swap(*it1, *it2);
+    it1 = it2++;
+    if (it2 == e)
+    break;
+    it1 = it2++;
+    if (it2 == e)
+    break;
+    }*/
+  }
+
+  do {
     // time this permutation
     uint64_t newTime = timeFunc(func, a, runtime);
     if (newTime < bestTime)
@@ -296,22 +337,7 @@ list<line> superOptimise(list<line>& func, X86Assembler& a, JitRuntime& runtime,
       bestTime = newTime;
       cout << "more optimal sequence found: " << newTime << endl;
     }
-
-    // make next permutation
-    std::list<line>::iterator it2 = func.begin();
-    std::list<line>::iterator it1 = it2++;
-    std::list<line>::iterator e = func.end();
-    for (;;)
-    {
-      std::swap(*it1, *it2);
-      it1 = it2++;
-      if (it2 == e)
-        break;
-      it1 = it2++;
-      if (it2 == e)
-        break;
-    }
-  }
+  } while(std::next_permutation(func.begin(), func.end(), *cmp));
 
   return bestFunc;
 }
@@ -343,7 +369,10 @@ int main(int argc, char* argv[]) {
 
   cout << "optimisation complete, best sequence found:" << endl;
   for (list<line>::const_iterator ci = bestFunc.begin(); ci != bestFunc.end(); ++ci)
-    cout << ci->instruction << endl;
+  {
+    //cout << ci->instruction << endl;
+    cout << ci->originalIndex << endl;
+  }
 
   return 0;
 }
