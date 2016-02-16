@@ -9,10 +9,17 @@
 #include <vector>
 #include <map>
 #include <assert.h>
+#include <list>
 
 using namespace asmjit;
 using namespace x86;
 using namespace std;
+
+struct line {
+  uint32_t instruction;
+  asmjit::Operand ops[4];
+  string label;
+};
 
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
   std::stringstream ss(s);
@@ -129,7 +136,7 @@ Operand getOpFromStr(string op, std::map<string, Label>& labels, X86Assembler& a
   return Operand();
 }
 
-void loadFuncFromFile(X86Assembler& a, char* file)
+void loadFuncFromFile(list<line>& func, X86Assembler& a, char* file)
 {
   std::map<string, Label> labels;
 
@@ -137,8 +144,7 @@ void loadFuncFromFile(X86Assembler& a, char* file)
   string str;
   while(getline(is, str))
   {
-    Operand op0, op1, op2, op3;
-    Operand* ops[4] = { &op0, &op1, &op2, &op3 };
+    Operand ops[4] = { Operand(), Operand(), Operand(), Operand() };
     str = trim(str);
     if (str.length() == 0)
       continue;
@@ -192,12 +198,30 @@ void loadFuncFromFile(X86Assembler& a, char* file)
       reverse(args.begin(), args.end()); // TODO option for intel syntax
       for (i = 0; i < args.size(); i++)
       {
-        *ops[i] = getOpFromStr(args[i], labels, a);
+        ops[i] = getOpFromStr(args[i], labels, a);
       }
     }
     for (; i < 4; i++)
-      *ops[i] = Operand();
-    a.emit(X86Util::getInstIdByName(parsed[0].c_str()), op0, op1, op2, op3);
+      ops[i] = Operand();
+    a.emit(X86Util::getInstIdByName(parsed[0].c_str()), ops[0], ops[1], ops[2], ops[3]);
+    func.insert(func.end(), (line){X86Util::getInstIdByName(parsed[0].c_str()), ops[0], ops[1], ops[2], ops[3], ""});
+  }
+}
+
+void superOptimise(list<line>& func, const int from, const int to)
+{
+  std::list<line>::iterator it2 = func.begin();
+  std::list<line>::iterator it1 = it2++;
+  std::list<line>::iterator e = func.end();
+  for (;;)
+  {
+    std::swap(*it1, *it2);
+    it1 = it2++;
+    if (it2 == e)
+      return;
+    it1 = it2++;
+    if (it2 == e)
+      return;
   }
 }
 
@@ -215,7 +239,16 @@ int main(int argc, char* argv[]) {
   X86Assembler a(&runtime);
   a.setLogger(&logger);
 
-  loadFuncFromFile(a, argv[1]);
+  list<line> func;
+
+  loadFuncFromFile(func, a, argv[1]);
+  for (list<line>::const_iterator ci = func.begin(); ci != func.end(); ++ci)
+    cout << ci->instruction << endl;
+  superOptimise(func, 2, 3);
+
+  cout << "optimisation complete" << endl;
+  for (list<line>::const_iterator ci = func.begin(); ci != func.end(); ++ci)
+    cout << ci->instruction << endl;
 
   // After finalization the code has been send to `Assembler`. It contains
   // a handy method `make()`, which returns a pointer that points to the
@@ -231,14 +264,14 @@ int main(int argc, char* argv[]) {
 
   // Using asmjit_cast is purely optional, it's basically a C-style cast
   // that tries to make it visible that a function-type is returned.
-  FuncType func = asmjit_cast<FuncType>(funcPtr);
+  FuncType callableFunc = asmjit_cast<FuncType>(funcPtr);
 
   uint64_t o, b, c;
   o = 0;
   b = 8;
   c = 24;
   // Finally, run it and do something with the result...
-  int z = func(&o, &b, &c, 1);
+  int z = callableFunc(&o, &b, &c, 1);
   printf("z=%d\n", z);
   printf("o=%lu\n", o); // Outputs "o=8" for and_n.
 
@@ -249,7 +282,7 @@ int main(int argc, char* argv[]) {
   // it's safe to just do nothing in our case, because destroying `Runtime`
   // will free `func` as well, however, it's always better to release the
   // generated code that is not needed anymore manually.
-  runtime.release((void*)func);
+  runtime.release((void*)callableFunc);
 
   return 0;
 }
