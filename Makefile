@@ -3,7 +3,7 @@ CC = g++
 ODIR = obj
 SDIR = src
 INC = -Iasmjit
-CFLAGS = -g
+CFLAGS = -g -Wno-attributes
 
 OBJS = asmjit/base/assembler.o asmjit/base/compiler.o \
        asmjit/base/compilercontext.o asmjit/base/constpool.o \
@@ -16,10 +16,10 @@ OBJS = asmjit/base/assembler.o asmjit/base/compiler.o \
        asmjit/x86/x86operand_regs.o asmjit/x86/x86scheduler.o
 
 all: $(OUT) ajs.cpp
-	$(CC) -g -o ajs ajs.cpp -L. -lasmjit -I. -Iasmjit
+	$(CC) -o ajs ajs.cpp -L. -lasmjit -I. -Iasmjit $(CFLAGS)
 
 %.o: %.cpp 
-	$(CC) -g -c $(INC) -o $@ $< $(CFLAGS) 
+	$(CC) -c $(INC) -o $@ $< $(CFLAGS)
 
 $(OUT): $(OBJS) 
 	ar rvs $(OUT) $^
