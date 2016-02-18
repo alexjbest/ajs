@@ -235,7 +235,7 @@ class ajs {
         vector<int> dependsOn;
         if (parsed.size() > 2)
         {
-          if (parsed[2].substr(0,5) == ";ajs:")
+          if (parsed[2].substr(0,5) == "#ajs:")
           {
             std::vector<std::string> deps = split(parsed[2].substr(5), ',');
             for (vector<string>::const_iterator ci = deps.begin(); ci != deps.end(); ++ci)
@@ -263,25 +263,40 @@ class ajs {
       FuncType callableFunc = asmjit_cast<FuncType>(funcPtr);
 
       uint32_t cycles_high, cycles_high1, cycles_low, cycles_low1;
-      uint64_t o, b, c, start, end, total;
-      //int64_t z;
-      o = 0;
-      b = 8;
-      c = 24;
-      total = 0;
-      uint64_t limbs = 100;
+      uint64_t start, end, total;
+      uint64_t limbs = 111;
       uint64_t *mpn1, *mpn2, *mpn3;
+      int loopsize = 1000;
       mpn1 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       mpn2 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       mpn3 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
 
-      for (int k = 0; k < 100; k++)
+      total = 0;
+      for (int k = 0; k < loopsize; k++)
       {
+        asm volatile (
+            "CPUID\n\t"
+            "RDTSC\n\t"
+            "mov %%edx, %0\n\t"
+            "mov %%eax, %1\n\t":
+            "=r" (cycles_high), "=r" (cycles_low)::
+            "%rax", "%rbx", "%rcx", "%rdx");
         uint64_t z = callableFunc(mpn1, mpn2, mpn3, limbs);
         //z += callableFunc(2, &b, 1, 4);
+        asm volatile(
+            "RDTSCP\n\t"
+            "mov %%edx, %0\n\t"
+            "mov %%eax, %1\n\t"
+            "CPUID\n\t" :
+            "=r" (cycles_high1), "=r" (cycles_low1) ::
+            "%rax", "%rbx", "%rcx", "%rdx");
+        start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
+        end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
+        total += end - start;
       }
 
-      for (int k = 0; k < 1000; k++)
+      total = 0;
+      for (int k = 0; k < loopsize; k++)
       {
         asm volatile (
             "CPUID\n\t"
@@ -306,6 +321,8 @@ class ajs {
         end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
         total += end - start;
       }
+
+      total /= loopsize;
 
       //printf("z=%ld\n", z);
       printf("total time=%ld\n", total);
@@ -365,8 +382,30 @@ class ajs {
       advance(end, to + 1);
 
       do {
-        count ++;
-        cout << "sequence " << count<< endl;
+        count++;
+        cout << "sequence " << count << ": ";
+        bool valid = true;
+        for (list<line>::const_iterator ci = start; valid && ci != end; ++ci)
+        {
+          for (vector<int>::const_iterator dep = ci->dependsOn.begin(); valid && dep != ci->dependsOn.end(); ++dep)
+          {
+            valid = false;
+            for (list<line>::const_iterator ci2 = start; ci != ci2; ++ci2)
+            {
+              if (ci2->originalIndex == *dep)
+              {
+                valid = true;
+                break;
+              }
+            }
+          }
+        }
+        if (!valid)
+        {
+          cout << "invalid " << endl;
+          continue;
+        }
+
         // time this permutation
         uint64_t newTime = timeFunc(func, a, runtime, numLabels);
         if (newTime < bestTime)
@@ -375,7 +414,7 @@ class ajs {
           bestFunc = func;
           bestTime = newTime;
           for (list<line>::const_iterator ci = func.begin(); ci != func.end(); ++ci)
-            cout << ci->originalIndex << endl;
+            cout << ci->originalIndex + 1 << endl;
         }
       } while(std::next_permutation(start, end, *cmp));
       cout << count << " sequences tried" << endl;
@@ -398,21 +437,25 @@ class ajs {
       // load it from the file given in arguments
       numLabels = loadFuncFromFile(func, a, file);
 
+      start--;
+      end--;
+      assert(start <= end);
       bestFunc = superOptimise(func, a, runtime, numLabels, start, end);
 
+      list<line>::iterator startIt = bestFunc.begin();
+      advance(startIt, start);
+      list<line>::iterator endIt = bestFunc.begin();
+      advance(endIt, end + 1);
       cout << "optimisation complete, best sequence found:" << endl;
-      for (list<line>::const_iterator ci = bestFunc.begin(); ci != bestFunc.end(); ++ci)
-      {
-        //cout << ci->instruction << endl;
-        cout << ci->originalIndex << endl;
-      }
+      for (list<line>::const_iterator ci = startIt; ci != endIt; ++ci)
+        cout << ci->originalIndex + 1 << endl;
 
       return 0;
     }
 };
 
-int main(int argc, char* argv[]) {
-
+int main(int argc, char* argv[])
+{
   if (argc < 4)
   {
     cout << "error: expected filename, start index, end index (inclusive)" << endl;
