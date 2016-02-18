@@ -15,6 +15,16 @@ using namespace asmjit;
 using namespace x86;
 using namespace std;
 
+/* TODO list:
+ * ----------
+ * check if for any other base for immediate values needed
+ * see if there is some way to do getRegByName in asmjit
+ * add support for there being no base register in getPtrFromAddress
+ * extend parsing part to handle spaces well
+ * check if there are other directives that will affect performance
+ * add capability for intel syntax
+ */
+
 
 struct line {
   uint32_t instruction;
@@ -64,7 +74,7 @@ class ajs {
       return ltrim(rtrim(s));
     }
 
-    static int64_t getVal(string val) { // TODO any other bases?
+    static int64_t getVal(string val) {
       if (count(val.begin(), val.end(), 'x') > 0)
         return std::strtoll(val.c_str(), NULL, 16);
       return std::strtoll(val.c_str(), NULL, 10);
@@ -87,7 +97,7 @@ class ajs {
       return rax;
     }
 
-    static X86Reg getRegFromName(string name) { // TODO see if we can do this with asmjit magic
+    static X86Reg getRegFromName(string name) {
       if (name.at(0) == 'r')
         return getGpRegFromName(name);
       if (name == "xmm0") return xmm0;
@@ -121,11 +131,11 @@ class ajs {
           (scalar == 2) ? 1 :
           (scalar == 4) ? 2 :
           (scalar == 8) ? 3 : -1;
-        if (trim(bis[0]).length() == 0) // no base register TODO
+        if (trim(bis[0]).length() == 0)
           return ptr(base, index, shift, disp);
         return ptr(base, index, shift, disp);
       }
-      if (trim(bis[0]).length() == 0) // no base register TODO
+      if (trim(bis[0]).length() == 0)
         return ptr(base, disp);
       return ptr(base, disp);
     }
@@ -163,7 +173,7 @@ class ajs {
         str = trim(str);
         if (str.length() == 0)
           continue;
-        std::vector<string> parsed = split(str, '\t'); //TODO use spaces here too
+        std::vector<string> parsed = split(str, '\t');
 
         // last character of first token is colon, so we are at a label
         if (*parsed[0].rbegin() == ':')
@@ -183,7 +193,7 @@ class ajs {
             std::vector<std::string> args = split(parsed[1], ',');
             func.insert(func.end(), (line){0, ops[0], ops[1], ops[2], ops[3], -1, getVal(args[0]), index++});
           }
-          continue; // TODO are there any more common directives that affect performance?
+          continue;
         }
 
         // try to deal with all manner of whitespace between label and instruction
@@ -212,7 +222,7 @@ class ajs {
             }
           }
 
-          reverse(args.begin(), args.end()); // TODO option for intel syntax
+          reverse(args.begin(), args.end());
 
           for (i = 0; i < args.size(); i++)
           {
