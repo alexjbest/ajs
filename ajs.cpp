@@ -251,7 +251,7 @@ class ajs {
       return labels.size();
     }
 
-    static uint64_t callFunc(void* funcPtr, JitRuntime& runtime)
+    static uint64_t callFunc(void* funcPtr, JitRuntime& runtime, uint64_t target)
     {
       // In order to run 'funcPtr' it has to be casted to the desired type.
       // Typedef is a recommended and safe way to create a function-type.
@@ -293,6 +293,10 @@ class ajs {
         start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
         end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
         total += end - start;
+        if (target != 0 && total > (target+20) * loopsize)
+        {
+          break;
+        }
       }
 
       total = 0;
@@ -320,12 +324,17 @@ class ajs {
         start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
         end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
         total += end - start;
+        if (target != 0 && total > (target+20) * loopsize)
+        {
+          //printf("cannot hit target, aborting: ");
+          break;
+        }
       }
 
       total /= loopsize;
 
       //printf("z=%ld\n", z);
-      printf("total time=%ld\n", total);
+      //printf("total time=%ld\n", total);
       //printf("o=%lu\n", o); // Outputs "o=8" for and_n.
 
       free(mpn1);
@@ -336,7 +345,7 @@ class ajs {
       return total;
     }
 
-    static uint64_t timeFunc(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels)
+    static uint64_t timeFunc(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, uint64_t target)
     {
       Label labels[numLabels];
       for (int i = 0; i < numLabels; i++)
@@ -364,7 +373,7 @@ class ajs {
       void* funcPtr = a.make();
 
       // cout << "make successful" << endl;
-      uint64_t ret = callFunc(funcPtr, runtime);
+      uint64_t ret = callFunc(funcPtr, runtime, target);
       a.reset();
 
       return ret;
@@ -372,52 +381,95 @@ class ajs {
 
     static list<line> superOptimise(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, const int from, const int to)
     {
-      uint64_t bestTime = -1;
+      uint64_t bestTime = 0;
       int count = 0;
+      int level = 0;
+      vector< list<line> > lines(to + 1 - from);
+      vector< int > remaining(to + 2 - from);
       list<line> bestFunc;
 
       list<line>::iterator start = func.begin();
       advance(start, from);
       list<line>::iterator end = func.begin();
       advance(end, to + 1);
+      //advance(cur, to + 1);
+      for (list<line>::iterator ci = start; ci != end;)
+      {
+        lines[ci->dependsOn.size()].push_back(*ci);
+        ci = func.erase(ci);
+      }
 
-      do {
-        count++;
-        cout << "sequence " << count << ": ";
-        bool valid = true;
-        for (list<line>::const_iterator ci = start; valid && ci != end; ++ci)
+      remaining[0] = lines[0].size();
+
+      list<line>::iterator cur = func.begin();
+      advance(cur, from - 1);
+
+      while (level >= 0)
+      {
+        // if not done at current level down a level
+        if (remaining[level])
         {
-          for (vector<int>::const_iterator dep = ci->dependsOn.begin(); valid && dep != ci->dependsOn.end(); ++dep)
+          ++cur;
+          // add new
+          cur = func.insert(cur, lines[0].front());
+          lines[0].pop_front();
+          remaining[level]--;
+
+          // update dependencies
+          for (int i = 1; i < to + 1 - from; i++)
           {
-            valid = false;
-            for (list<line>::const_iterator ci2 = start; ci != ci2; ++ci2)
+            for (list<line>::iterator ci = lines[i].begin(); ci != lines[i].end(); ++ci)
             {
-              if (ci2->originalIndex == *dep)
+              if (find(ci->dependsOn.begin(), ci->dependsOn.end(), cur->originalIndex) != ci->dependsOn.end())
               {
-                valid = true;
-                break;
+                lines[i - 1].push_back(*ci);
+                ci = lines[i].erase(ci);
+                --ci;
               }
             }
           }
-        }
-        if (!valid)
-        {
-          cout << "invalid " << endl;
-          continue;
-        }
 
-        // time this permutation
-        uint64_t newTime = timeFunc(func, a, runtime, numLabels);
-        if (newTime < bestTime)
-        {
-          cout << "better sequence found: " << newTime << " delta: " << bestTime - newTime << endl;
-          bestFunc = func;
-          bestTime = newTime;
-          for (list<line>::const_iterator ci = func.begin(); ci != func.end(); ++ci)
-            cout << ci->originalIndex + 1 << endl;
+          level++;
+          remaining[level] = lines[0].size();
         }
-      } while(std::next_permutation(start, end, *cmp));
-      cout << count << " sequences tried" << endl;
+        else // if done at this level maybe time and then go up a level
+        {
+          if (level == to - from + 1)
+          {
+            // time this permutation
+            uint64_t newTime = timeFunc(func, a, runtime, numLabels, bestTime);
+            if (bestTime == 0 || newTime < bestTime)
+            {
+              cout << "better sequence found: " << newTime << " delta: " << bestTime - newTime << endl;
+              bestFunc = func;
+              bestTime = newTime;
+              for (list<line>::const_iterator ci = func.begin(); ci != func.end(); ++ci)
+                cout << ci->originalIndex + 1 << ", ";
+              cout << endl;
+            }
+          }
+
+          // update dependencies
+          for (int i = to - from; i >= 0; i--)
+          {
+            for (list<line>::iterator ci = lines[i].begin(); ci != lines[i].end(); ++ci)
+            {
+              if (find(ci->dependsOn.begin(), ci->dependsOn.end(), cur->originalIndex) != ci->dependsOn.end())
+              {
+                lines[i + 1].push_back(*ci);
+                ci = lines[i].erase(ci);
+                --ci;
+              }
+            }
+          }
+          // remove old
+          lines[0].push_back(*cur);
+          cur = func.erase(cur);
+
+          level--;
+          --cur;
+        }
+      }
 
       return bestFunc;
     }
