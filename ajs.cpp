@@ -266,74 +266,47 @@ class ajs {
       uint64_t start, end, total;
       uint64_t limbs = 111;
       uint64_t *mpn1, *mpn2, *mpn3;
-      int loopsize = 1000;
+      const int loopsize = 150;
       mpn1 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       mpn2 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       mpn3 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
 
-      total = 0;
-      for (int k = 0; k < loopsize; k++)
+      for (int timing = 0; timing < 2; timing++)
       {
-        asm volatile (
-            "CPUID\n\t"
-            "RDTSC\n\t"
-            "mov %%edx, %0\n\t"
-            "mov %%eax, %1\n\t":
-            "=r" (cycles_high), "=r" (cycles_low)::
-            "%rax", "%rbx", "%rcx", "%rdx");
-        uint64_t z = callableFunc(mpn1, mpn2, mpn3, limbs);
-        //z += callableFunc(2, &b, 1, 4);
-        asm volatile(
-            "RDTSCP\n\t"
-            "mov %%edx, %0\n\t"
-            "mov %%eax, %1\n\t"
-            "CPUID\n\t" :
-            "=r" (cycles_high1), "=r" (cycles_low1) ::
-            "%rax", "%rbx", "%rcx", "%rdx");
-        start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
-        end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
-        total += end - start;
-        if (target != 0 && total > (target+20) * loopsize)
+        total = 0;
+        for (int k = 0; k < loopsize; k++)
         {
-          break;
-        }
-      }
 
-      total = 0;
-      for (int k = 0; k < loopsize; k++)
-      {
-        asm volatile (
-            "CPUID\n\t"
-            "RDTSC\n\t"
-            "mov %%edx, %0\n\t"
-            "mov %%eax, %1\n\t":
-            "=r" (cycles_high), "=r" (cycles_low)::
-            "%rax", "%rbx", "%rcx", "%rdx");
+          asm volatile (
+              "CPUID\n\t"
+              "RDTSC\n\t"
+              "mov %%edx, %0\n\t"
+              "mov %%eax, %1\n\t":
+              "=r" (cycles_high), "=r" (cycles_low)::
+              "%rax", "%rbx", "%rcx", "%rdx");
 
-        uint64_t z = callableFunc(mpn1, mpn2, mpn3, limbs);
-        //z += callableFunc(4, &b, 3, 4);
+          uint64_t z = callableFunc(mpn1, mpn2, mpn3, limbs);
 
-        // end timing
-        asm volatile(
-            "RDTSCP\n\t"
-            "mov %%edx, %0\n\t"
-            "mov %%eax, %1\n\t"
-            "CPUID\n\t" :
-            "=r" (cycles_high1), "=r" (cycles_low1) ::
-            "%rax", "%rbx", "%rcx", "%rdx");
-        start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
-        end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
-        total += end - start;
-        if (target != 0 && total > (target+20) * loopsize)
-        {
-          //printf("cannot hit target, aborting: ");
-          break;
+          asm volatile(
+              "RDTSCP\n\t"
+              "mov %%edx, %0\n\t"
+              "mov %%eax, %1\n\t"
+              "CPUID\n\t" :
+              "=r" (cycles_high1), "=r" (cycles_low1) ::
+              "%rax", "%rbx", "%rcx", "%rdx");
+          start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
+          end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
+          total += end - start;
+          if (target != 0 && total > (target+20) * loopsize)
+          {
+            //printf("cannot hit target, aborting: ");
+            break;
+          }
         }
       }
 
       total /= loopsize;
 
-      //printf("z=%ld\n", z);
       //printf("total time=%ld\n", total);
       //printf("o=%lu\n", o); // Outputs "o=8" for and_n.
 
@@ -440,7 +413,10 @@ class ajs {
             uint64_t newTime = timeFunc(func, a, runtime, numLabels, bestTime);
             if (bestTime == 0 || newTime < bestTime)
             {
-              cout << "better sequence found: " << newTime << " delta: " << bestTime - newTime << endl;
+              cout << "better sequence found: " << newTime;
+              if (bestTime != 0)
+                cout <<" delta: " << bestTime - newTime;
+              cout << endl;
               bestFunc = func;
               bestTime = newTime;
               for (list<line>::const_iterator ci = func.begin(); ci != func.end(); ++ci)
