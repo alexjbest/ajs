@@ -11,6 +11,8 @@
 #include <assert.h>
 #include <list>
 
+#define regreg(N)  if (name == #N) return N
+
 using namespace asmjit;
 using namespace x86;
 using namespace std;
@@ -84,26 +86,42 @@ class ajs {
       return Imm(getVal(val));
     }
 
+    static X86XmmReg getXmmRegFromName(string name) {
+      regreg(xmm0);
+      regreg(xmm1);
+      regreg(xmm2);
+      regreg(xmm3);
+      assert(0);
+      return xmm0;
+    }
+
     static X86GpReg getGpRegFromName(string name) {
-      if (name == "rdi") return rdi;
-      if (name == "rsi") return rsi;
-      if (name == "rdx") return rdx;
-      if (name == "rcx") return rcx;
-      if (name == "r8") return r8;
-      if (name == "r9") return r9;
-      if (name == "r10") return r10;
-      if (name == "r11") return r11;
-      if (name == "rax") return rax;
+      regreg(rax);  regreg(eax);   regreg(ax);   regreg(ah);  regreg(al);
+      regreg(rbx);  regreg(ebx);   regreg(bx);   regreg(bh);  regreg(bl);
+      regreg(rcx);  regreg(ecx);   regreg(cx);   regreg(ch);  regreg(cl);
+      regreg(rdx);  regreg(edx);   regreg(dx);   regreg(dh);  regreg(dl);
+      regreg(rbp);  regreg(ebp);   regreg(bp);
+      regreg(rsp);  regreg(esp);   regreg(sp);
+      regreg(rsi);  regreg(esi);   regreg(si);
+      regreg(rdi);  regreg(edi);   regreg(di);
+      regreg(r8);   regreg(r8d);   regreg(r8w);               regreg(r8b);
+      regreg(r9);   regreg(r9d);   regreg(r9w);               regreg(r9b);
+      regreg(r10);  regreg(r10d);  regreg(r10w);              regreg(r10b);
+      regreg(r11);  regreg(r11d);  regreg(r11w);              regreg(r11b);
+      regreg(r12);  regreg(r12d);  regreg(r12w);              regreg(r12b);
+      regreg(r13);  regreg(r13d);  regreg(r13w);              regreg(r13b);
+      regreg(r14);  regreg(r14d);  regreg(r14w);              regreg(r14b);
+      regreg(r15);  regreg(r15d);  regreg(r15w);              regreg(r15b);
+      cout << name << endl;
+      assert(0);
       return rax;
     }
 
     static X86Reg getRegFromName(string name) {
-      if (name.at(0) == 'r')
-        return getGpRegFromName(name);
-      if (name == "xmm0") return xmm0;
-      if (name == "xmm1") return xmm1;
-      if (name == "xmm2") return xmm2;
-      if (name == "xmm3") return xmm3;
+      if (name.at(0) == 'x')
+        return getXmmRegFromName(name);
+      return getGpRegFromName(name);
+      assert(0);
       return rax;
     }
 
@@ -114,7 +132,7 @@ class ajs {
       uint32_t disp = 0;
       if (i > 0)
         disp = std::strtoul(addr.substr(0, i).c_str(), NULL, 10);
-      vector<string> bis = split(addr.substr(i + 1, addr.size() - 2), ',');
+      vector<string> bis = split(addr.substr(i + 1, addr.size() - 2 - i), ',');
       X86GpReg base;
       if (trim(bis[0]).length() != 0) // no base register
         base = getGpRegFromName(trim(bis[0]).substr(1));
@@ -276,7 +294,6 @@ class ajs {
         total = 0;
         for (int k = 0; k < loopsize; k++)
         {
-
           asm volatile (
               "CPUID\n\t"
               "RDTSC\n\t"
