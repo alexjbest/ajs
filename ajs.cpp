@@ -28,6 +28,8 @@ using namespace std;
  * extend parsing part to handle spaces well
  * check if there are other directives that will affect performance
  * add capability for intel syntax
+ * make repz ret work
+ * make shr %r9 work
  */
 
 
