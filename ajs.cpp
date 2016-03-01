@@ -96,6 +96,18 @@ class ajs {
       regreg(xmm1);
       regreg(xmm2);
       regreg(xmm3);
+      regreg(xmm4);
+      regreg(xmm5);
+      regreg(xmm6);
+      regreg(xmm7);
+      regreg(xmm8);
+      regreg(xmm9);
+      regreg(xmm10);
+      regreg(xmm11);
+      regreg(xmm12);
+      regreg(xmm13);
+      regreg(xmm14);
+      regreg(xmm15);
       assert(0);
       return xmm0;
     }
