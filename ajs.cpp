@@ -24,7 +24,6 @@ using namespace std;
  * ----------
  * check if for any other base for immediate values needed
  * see if there is some way to do getRegByName in asmjit
- * add support for there being no base register in getPtrFromAddress
  * extend parsing part to handle spaces well
  * check if there are other directives that will affect performance
  * add capability for intel syntax
@@ -175,11 +174,11 @@ class ajs {
           (scalar == 4) ? 2 :
           (scalar == 8) ? 3 : -1;
         if (trim(bis[0]).length() == 0)
-          return ptr(base, index, shift, disp);
+          return ptr_abs(0, index, shift, disp);
         return ptr(base, index, shift, disp);
       }
       if (trim(bis[0]).length() == 0)
-        return ptr(base, disp);
+        return ptr_abs(0, disp);
       return ptr(base, disp);
     }
 
