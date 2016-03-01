@@ -146,9 +146,17 @@ class ajs {
     static X86Mem getPtrFromAddress(string addr)
     {
       size_t i = addr.find("(");
-      uint32_t disp = 0;
+      int32_t disp = 0;
       if (i > 0)
-        disp = std::strtoul(addr.substr(0, i).c_str(), NULL, 10);
+      {
+        string d = addr.substr(0, i);
+        if (count(d.begin(), d.end(), 'x') > 0) {
+          disp = std::strtoll(d.c_str(), NULL, 16);
+        }
+        else {
+          disp = std::strtoll(d.c_str(), NULL, 10);
+        }
+      }
       vector<string> bis = split(addr.substr(i + 1, addr.size() - 2 - i), ',');
       X86GpReg base;
       if (trim(bis[0]).length() != 0) // no base register
