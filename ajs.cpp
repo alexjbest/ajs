@@ -406,11 +406,17 @@ class ajs {
       advance(start, from);
       list<line>::iterator end = func.begin();
       advance(end, to + 1);
-      //advance(cur, to + 1);
-      for (list<line>::iterator ci = start; ci != end;)
+
+      for (list<line>::iterator i = start; i != end;)
       {
-        lines[ci->dependsOn.size()].push_back(*ci);
-        ci = func.erase(ci);
+        int depCount = 0;
+        for (vector<int>::const_iterator ci = i->dependsOn.begin(); ci != i->dependsOn.end(); ++ci)
+        {
+          if (*ci >= from && *ci <= to)
+            depCount++;
+        }
+        lines[depCount].push_back(*i);
+        i = func.erase(i);
       }
 
       remaining[0] = lines[0].size();
@@ -448,6 +454,8 @@ class ajs {
         }
         else // if done at this level maybe time and then go up a level
         {
+          if (level == 0)
+            break;
           if (level == to - from + 1)
           {
             // time this permutation
