@@ -27,5 +27,4 @@ $(OUT): $(OBJS)
 .PHONY: clean
 
 clean:
-	rm -f $(ODIR)/*.o $(OUT)
-	rm ajs
+	rm -f $(OBJS) $(OUT) ajs
