@@ -13,8 +13,8 @@
 
 #define regreg(N)  if (name == #N) return N
 #define debug_print(fmt, ...) \
-	        do { fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
-				                                __LINE__, __func__, __VA_ARGS__); } while (0)
+  do { fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
+      __LINE__, __func__, __VA_ARGS__); } while (0)
 
 using namespace asmjit;
 using namespace x86;
@@ -26,9 +26,11 @@ using namespace std;
  * see if there is some way to do getRegByName in asmjit
  * extend parsing part to handle spaces well
  * check if there are other directives that will affect performance
+ * check if there are other directives that will affect correctness
  * add capability for intel syntax
  * make repz ret work
  * make shr %r9 work
+ * do registers more programmatically?
  */
 
 
@@ -230,8 +232,7 @@ class ajs {
         }
         else if (parsed[0].at(0) == '.') // first char of first token is '.' so have a directive
         {
-          if (parsed[0] == ".align")
-          {
+          if (parsed[0] == ".align") {
             std::vector<std::string> args = split(parsed[1], ',');
             func.insert(func.end(), (line){0, ops[0], ops[1], ops[2], ops[3], -1, getVal(args[0]), index++});
           }
@@ -293,7 +294,7 @@ class ajs {
       return labels.size();
     }
 
-    static uint64_t callFunc(void* funcPtr, JitRuntime& runtime, uint64_t target)
+    static uint64_t callFunc(void* funcPtr, JitRuntime& runtime, uint64_t target, const int limbs)
     {
       // In order to run 'funcPtr' it has to be casted to the desired type.
       // Typedef is a recommended and safe way to create a function-type.
@@ -306,7 +307,6 @@ class ajs {
 
       uint32_t cycles_high, cycles_high1, cycles_low, cycles_low1;
       uint64_t start, end, total;
-      uint64_t limbs = 111;
       uint64_t *mpn1, *mpn2, *mpn3;
       const int loopsize = 150;
       mpn1 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
@@ -359,7 +359,7 @@ class ajs {
       return total;
     }
 
-    static uint64_t timeFunc(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, uint64_t target)
+    static uint64_t timeFunc(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, uint64_t target, const int limbs)
     {
       Label labels[numLabels];
       for (int i = 0; i < numLabels; i++)
@@ -387,13 +387,13 @@ class ajs {
       void* funcPtr = a.make();
 
       // cout << "make successful" << endl;
-      uint64_t ret = callFunc(funcPtr, runtime, target);
+      uint64_t ret = callFunc(funcPtr, runtime, target, limbs);
       a.reset();
 
       return ret;
     }
 
-    static list<line> superOptimise(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, const int from, const int to)
+    static list<line> superOptimise(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, const int from, const int to, const int limbs)
     {
       uint64_t bestTime = 0;
       int count = 0;
@@ -451,7 +451,7 @@ class ajs {
           if (level == to - from + 1)
           {
             // time this permutation
-            uint64_t newTime = timeFunc(func, a, runtime, numLabels, bestTime);
+            uint64_t newTime = timeFunc(func, a, runtime, numLabels, bestTime, limbs);
             if (bestTime == 0 || newTime < bestTime)
             {
               cout << "better sequence found: " << newTime;
@@ -492,7 +492,7 @@ class ajs {
     }
 
   public:
-    static int run(char* file, int start, int end) {
+    static int run(char* file, int start, int end, const int limbs) {
       FileLogger logger(stdout);
       int numLabels = 0;
 
@@ -509,7 +509,7 @@ class ajs {
       start--;
       end--;
       assert(start <= end);
-      bestFunc = superOptimise(func, a, runtime, numLabels, start, end);
+      bestFunc = superOptimise(func, a, runtime, numLabels, start, end, limbs);
 
       list<line>::iterator startIt = bestFunc.begin();
       advance(startIt, start);
@@ -525,10 +525,10 @@ class ajs {
 
 int main(int argc, char* argv[])
 {
-  if (argc < 4)
+  if (argc < 5)
   {
-    cout << "error: expected filename, start index, end index (inclusive)" << endl;
+    cout << "error: expected filename, start index, end index (inclusive), limb count" << endl;
     return 1;
   }
-  return ajs::run(argv[1], std::strtol(argv[2], NULL, 10), std::strtol(argv[3], NULL, 10));
+  return ajs::run(argv[1], std::strtol(argv[2], NULL, 10), std::strtol(argv[3], NULL, 10), std::strtol(argv[4], NULL, 10));
 }
