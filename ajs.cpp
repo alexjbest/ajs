@@ -1,6 +1,6 @@
-#include <asmjit/asmjit.h>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <algorithm>
 #include <functional>
 #include <cctype>
@@ -8,13 +8,19 @@
 #include <sstream>
 #include <vector>
 #include <map>
-#include <assert.h>
 #include <list>
+#include <assert.h>
+#include <asmjit/asmjit.h>
+#include <stdlib.h>
+#include <getopt.h>
 
 #define regreg(N)  if (name == #N) return N
 #define debug_print(fmt, ...) \
   do { fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
       __LINE__, __func__, __VA_ARGS__); } while (0)
+
+#define stringify( x ) static_cast< std::ostringstream & >( \
+            ( std::ostringstream() << std::dec << x ) ).str()
 
 using namespace asmjit;
 using namespace x86;
@@ -31,6 +37,7 @@ using namespace std;
  * make repz ret work
  * make shr %r9 work
  * do registers more programmatically?
+ * add help option, usage message etc.
  */
 
 
@@ -201,17 +208,25 @@ class ajs {
           labels[op] = a.newLabel();
         return labels[op];
       }
-      return Operand();
+      assert(0);
+      return noOperand;
     }
 
-    static int loadFuncFromFile(list<line>& func, X86Assembler& a, char* file)
+    static int loadFuncFromFile(list<line>& func, X86Assembler& a, const char* file)
     {
       int index = 0;
       map<string, Label> labels;
 
       ifstream is(file);
       string str;
-      while(getline(is, str))
+
+      if (is.bad() || !is.is_open())
+      {
+        cout << "error: opening file failed, is filename correct?\n" << endl;
+        return -1;
+      }
+
+      while (getline(is, str))
       {
         Operand ops[4] = { Operand(), Operand(), Operand(), Operand() };
         str = trim(str);
@@ -273,7 +288,7 @@ class ajs {
           }
         }
         for (; i < 4; i++)
-          ops[i] = Operand();
+          ops[i] = noOperand;
 
         vector<int> dependsOn;
         if (parsed.size() > 2)
@@ -359,7 +374,7 @@ class ajs {
       return total;
     }
 
-    static uint64_t timeFunc(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, uint64_t target, const int limbs)
+    static void addFunc(list<line>& func, X86Assembler& a, int numLabels)
     {
       Label labels[numLabels];
       for (int i = 0; i < numLabels; i++)
@@ -383,10 +398,14 @@ class ajs {
         }
         a.emit(curLine.instruction, curLine.ops[0], curLine.ops[1], curLine.ops[2], curLine.ops[3]);
       }
+    }
+
+    static uint64_t timeFunc(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, uint64_t target, const int limbs)
+    {
+      addFunc(func, a, numLabels);
 
       void* funcPtr = a.make();
 
-      // cout << "make successful" << endl;
       uint64_t ret = callFunc(funcPtr, runtime, target, limbs);
       a.reset();
 
@@ -500,9 +519,11 @@ class ajs {
     }
 
   public:
-    static int run(char* file, int start, int end, const int limbs) {
+    static int run(const char* file, int start, int end, const int limbs, const char* outFile) {
       FileLogger logger(stdout);
       int numLabels = 0;
+
+      logger.setIndentation("\t");
 
       // Create JitRuntime and X86 Assembler/Compiler.
       JitRuntime runtime;
@@ -514,6 +535,9 @@ class ajs {
       // load it from the file given in arguments
       numLabels = loadFuncFromFile(func, a, file);
 
+      if (numLabels == -1)
+        exit(EXIT_FAILURE);
+
       start--;
       end--;
       assert(start <= end);
@@ -523,9 +547,18 @@ class ajs {
       advance(startIt, start);
       list<line>::iterator endIt = bestFunc.begin();
       advance(endIt, end + 1);
-      cout << "optimisation complete, best sequence found:" << endl;
+      printf("optimisation complete, best sequence found for range %d-%d:\n", start + 1, end + 1);
       for (list<line>::const_iterator ci = startIt; ci != endIt; ++ci)
-        cout << ci->originalIndex + 1 << endl;
+        printf("%d\n", ci->originalIndex + 1);
+
+      if (outFile != NULL)
+      {
+        a.setLogger(&logger);
+        FILE* of = fopen(outFile, "w");
+        logger.setStream(of);
+        addFunc(bestFunc, a, numLabels);
+        fclose(of);
+      }
 
       return 0;
     }
@@ -533,10 +566,42 @@ class ajs {
 
 int main(int argc, char* argv[])
 {
-  if (argc < 5)
-  {
-    cout << "error: expected filename, start index, end index (inclusive), limb count" << endl;
-    return 1;
+  int c, start, end, limbs = 111;
+  char *outFile = NULL;
+
+  // deal with optional arguments: limbs and output file
+  while (1) {
+    int this_option_optind = optind ? optind : 1;
+    int option_index = 0;
+    static struct option long_options[] = {
+      {"limbs",   required_argument, 0,  0 },
+      {"out",     required_argument, 0,  0 },
+      {0,         0,                 0,  0 }
+    };
+
+    c = getopt_long(argc, argv, "l:o:",
+        long_options, &option_index);
+    if (c == -1)
+      break;
+
+    switch (c) {
+      case 'l':
+        limbs = std::strtol(optarg, NULL, 10);
+        printf("using %s limbs\n", optarg);
+        break;
+
+      case 'o':
+        outFile = optarg;
+        printf("writing optimised function to %s\n", optarg);
+        break;
+    }
   }
-  return ajs::run(argv[1], std::strtol(argv[2], NULL, 10), std::strtol(argv[3], NULL, 10), std::strtol(argv[4], NULL, 10));
+
+  if (argc < 4)
+  {
+    cout << "error: expected filename, start index, end index (inclusive)" << endl;
+    exit(EXIT_FAILURE);
+  }
+
+  return ajs::run(argv[optind], std::strtol(argv[optind + 1], NULL, 10), std::strtol(argv[optind + 2], NULL, 10), limbs, outFile);
 }
