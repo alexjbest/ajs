@@ -53,7 +53,7 @@ struct line {
 
 class ajs {
 
-  private:
+  public:
     static bool cmp(const line &a, const line &b) {
       return a.originalIndex < b.originalIndex;
     }
@@ -531,7 +531,6 @@ class ajs {
             break;
           if (level == to - from + 1)
           {
-            debug_print("%s\n", "");
             // time this permutation
             uint64_t newTime = timeFunc(func, a, runtime, numLabels, bestTime, limbs);
             if (bestTime == 0 || newTime < bestTime)
@@ -573,7 +572,6 @@ class ajs {
       return bestFunc;
     }
 
-  public:
     static int run(const char* file, int start, int end, const int limbs, const char* outFile) {
       FileLogger logger(stdout);
       int numLabels = 0;
@@ -594,8 +592,15 @@ class ajs {
       if (numLabels == -1)
         exit(EXIT_FAILURE);
 
-      start--;
-      end--;
+      if (start != 0)
+        start--;
+      else
+        start = 0;
+      if (end != 0)
+        end--;
+      else
+        end = func.size() - 1;
+      assert(end <= func.size() - 1);
       assert(start <= end);
       bestFunc = superOptimise(func, a, runtime, numLabels, start, end, limbs);
 
@@ -625,7 +630,7 @@ class ajs {
 
 int main(int argc, char* argv[])
 {
-  int c, start, end, limbs = 111;
+  int c, start = 0, end = 0, limbs = 111;
   char *outFile = NULL;
 
   // deal with optional arguments: limbs and output file
@@ -635,10 +640,11 @@ int main(int argc, char* argv[])
     static struct option long_options[] = {
       {"limbs",   required_argument, 0,  0 },
       {"out",     required_argument, 0,  0 },
+      {"range",   required_argument, 0,  0 },
       {0,         0,                 0,  0 }
     };
 
-    c = getopt_long(argc, argv, "l:o:",
+    c = getopt_long(argc, argv, "l:o:r:",
         long_options, &option_index);
     if (c == -1)
       break;
@@ -653,14 +659,21 @@ int main(int argc, char* argv[])
         outFile = optarg;
         printf("writing optimised function to %s\n", optarg);
         break;
+
+      case 'r':
+        vector<string> range = ajs::split(optarg, '-');
+        start = std::strtol(range[0].c_str(), NULL, 10);
+        end = std::strtol(range[1].c_str(), NULL, 10);
+        printf("using range %d to %d\n", start, end);
+        break;
     }
   }
 
-  if (argc < 4)
+  if (argc < 2)
   {
-    cout << "error: expected filename, start index, end index (inclusive)" << endl;
+    cout << "error: expected filename" << endl;
     exit(EXIT_FAILURE);
   }
 
-  return ajs::run(argv[optind], std::strtol(argv[optind + 1], NULL, 10), std::strtol(argv[optind + 2], NULL, 10), limbs, outFile);
+  return ajs::run(argv[optind], start, end, limbs, outFile);
 }
