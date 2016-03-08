@@ -587,7 +587,7 @@ class ajs {
       return bestFunc;
     }
 
-    static int run(const char* file, int start, int end, const int limbs, const char* outFile) {
+    static int run(const char* file, int start, int end, const int limbs, const char* outFile, const int verbose) {
       FileLogger logger(stdout);
       int numLabels = 0;
 
@@ -596,7 +596,8 @@ class ajs {
       // Create JitRuntime and X86 Assembler/Compiler.
       JitRuntime runtime;
       X86Assembler a(&runtime);
-      a.setLogger(&logger);
+      if (verbose)
+        a.setLogger(&logger);
 
       // Create the functions we will work with
       list<line> func, bestFunc;
@@ -645,7 +646,7 @@ class ajs {
 
 int main(int argc, char* argv[])
 {
-  int c, start = 0, end = 0, limbs = 111;
+  int c, start = 0, end = 0, limbs = 111, verbose = 0;
   char *outFile = NULL;
 
   // deal with optional arguments: limbs and output file
@@ -656,10 +657,11 @@ int main(int argc, char* argv[])
       {"limbs",   required_argument, 0,  0 },
       {"out",     required_argument, 0,  0 },
       {"range",   required_argument, 0,  0 },
+      {"verbose", no_argument,       0,  0 },
       {0,         0,                 0,  0 }
     };
 
-    c = getopt_long(argc, argv, "l:o:r:",
+    c = getopt_long(argc, argv, "l:o:r:v",
         long_options, &option_index);
     if (c == -1)
       break;
@@ -676,10 +678,16 @@ int main(int argc, char* argv[])
         break;
 
       case 'r':
-        vector<string> range = ajs::split(optarg, '-');
-        start = std::strtol(range[0].c_str(), NULL, 10);
-        end = std::strtol(range[1].c_str(), NULL, 10);
-        printf("using range %d to %d\n", start, end);
+        {
+          vector<string> range = ajs::split(optarg, '-');
+          start = std::strtol(range[0].c_str(), NULL, 10);
+          end = std::strtol(range[1].c_str(), NULL, 10);
+          printf("using range %d to %d\n", start, end);
+        }
+        break;
+
+      case 'v':
+        verbose = 1;
         break;
     }
   }
@@ -690,5 +698,5 @@ int main(int argc, char* argv[])
     exit(EXIT_FAILURE);
   }
 
-  return ajs::run(argv[optind], start, end, limbs, outFile);
+  return ajs::run(argv[optind], start, end, limbs, outFile, verbose);
 }
