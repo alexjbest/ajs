@@ -38,6 +38,7 @@ using namespace std;
  * make shr %r9 work
  * do registers more programmatically?
  * add help option, usage message etc.
+ * add make dependencies for headers
  */
 
 
@@ -47,7 +48,7 @@ struct line {
   uint32_t label;
   uint32_t align;
   int originalIndex;
-  vector<int> dependsOn;
+  vector<int> dependencies;
 };
 
 class ajs {
@@ -212,6 +213,34 @@ class ajs {
       return noOperand;
     }
 
+    // returns whether line a depends on line b or not
+    // i.e. if a followed b originally whether swapping is permissible in general
+    static bool dependsOn(const line& a, const line& b)
+    {
+      const X86InstInfo& ainfo = X86Util::getInstInfo(a.instruction),
+            &binfo = X86Util::getInstInfo(b.instruction);
+
+      // if a or b are control flow instructions there is always a dependency
+      if (ainfo.hasInstFlag(kX86InstFlagFlow))
+        return true;
+      if (binfo.hasInstFlag(kX86InstFlagFlow))
+        return true;
+
+      if (ainfo.hasInstFlag(kX86InstFlagTest))
+      {
+        // if a is a test instruction there is a dependency on other test instructions
+        if (binfo.hasInstFlag(kX86InstFlagTest))
+          return true;
+
+        // if a is a test instruction there is a dependency on other test instructions
+        if (binfo.getEncodingId() == kX86InstEncodingIdX86Arith)
+          return true;
+        // TODO only the last such instruction preceeding a jmp etc should have such a dep
+      }
+
+      return false;
+    }
+
     static int loadFuncFromFile(list<line>& func, X86Assembler& a, const char* file)
     {
       int index = 0;
@@ -225,6 +254,8 @@ class ajs {
         cout << "error: opening file failed, is filename correct?\n" << endl;
         return -1;
       }
+
+      a.reset();
 
       while (getline(is, str))
       {
@@ -241,7 +272,8 @@ class ajs {
           if (labels.count(label) == 0)
             labels[label] = a.newLabel();
 
-          func.insert(func.end(), (line){0, ops[0], ops[1], ops[2], ops[3], labels[label].getId(), 0, index++});
+          func.insert(func.end(), (line){0, ops[0], ops[1], ops[2], ops[3],
+              labels[label].getId(), 0, index++});
 
           parsed.erase(parsed.begin());
         }
@@ -261,6 +293,9 @@ class ajs {
         }
         if (parsed.size() == 0)
           continue;
+
+
+        uint32_t id = X86Util::getInstIdByName(parsed[0].c_str());
 
         int i = 0;
         if (parsed.size() > 1)
@@ -290,20 +325,31 @@ class ajs {
         for (; i < 4; i++)
           ops[i] = noOperand;
 
-        vector<int> dependsOn;
-        if (parsed.size() > 2)
+        line newLine = (line){id, ops[0], ops[1], ops[2], ops[3], -1, 0, index++, vector<int>()};
+        // check for dependencies annotated in the source
+        if (parsed.size() > 2 && parsed[2].substr(0,5) == "#ajs:")
         {
-          if (parsed[2].substr(0,5) == "#ajs:")
+          std::vector<std::string> deps = split(parsed[2].substr(5), ',');
+          for (vector<string>::const_iterator ci = deps.begin(); ci != deps.end(); ++ci)
           {
-            std::vector<std::string> deps = split(parsed[2].substr(5), ',');
-            for (vector<string>::const_iterator ci = deps.begin(); ci != deps.end(); ++ci)
-            {
-              dependsOn.push_back(atoi(ci->c_str()) - 1);
-            }
+            int newDep = atoi(ci->c_str()) - 1;
+            assert(newDep < index);
+            newLine.dependencies.push_back(newDep);
           }
         }
 
-        func.insert(func.end(), (line){X86Util::getInstIdByName(parsed[0].c_str()), ops[0], ops[1], ops[2], ops[3], -1, 0, index++, dependsOn});
+        // try to determine other dependencies
+        for (list<line>::const_iterator ci = func.begin(); ci != func.end(); ++ci)
+        {
+          if (dependsOn(newLine, *ci))
+          {
+            if (find(newLine.dependencies.begin(), newLine.dependencies.end(), ci->originalIndex) == newLine.dependencies.end())
+              newLine.dependencies.push_back(ci->originalIndex);
+            // TODO get rid of dependency chains.
+          }
+        }
+
+        func.insert(func.end(), newLine);
       }
       a.reset();
       return labels.size();
@@ -333,6 +379,10 @@ class ajs {
         total = 0;
         for (int k = 0; k < loopsize; k++)
         {
+          // calling func here makes gcc put callableFunc in r14
+          // this reduces the overhead in the timing a little.
+          callableFunc(mpn1, mpn2, mpn3, limbs);
+
           asm volatile (
               "CPUID\n\t"
               "RDTSC\n\t"
@@ -341,7 +391,7 @@ class ajs {
               "=r" (cycles_high), "=r" (cycles_low)::
               "%rax", "%rbx", "%rcx", "%rdx");
 
-          uint64_t z = callableFunc(mpn1, mpn2, mpn3, limbs);
+          callableFunc(mpn1, mpn2, mpn3, limbs);
 
           asm volatile(
               "RDTSCP\n\t"
@@ -350,10 +400,12 @@ class ajs {
               "CPUID\n\t" :
               "=r" (cycles_high1), "=r" (cycles_low1) ::
               "%rax", "%rbx", "%rcx", "%rdx");
+
           start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
           end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
           total += end - start;
-          if (target != 0 && total > (target+20) * loopsize)
+
+          if (target != 0 && total > (target + 20) * loopsize)
           {
             //printf("cannot hit target, aborting: ");
             break;
@@ -400,14 +452,16 @@ class ajs {
       }
     }
 
+    // makes a function with assembler then times the generated function with callFunc.
     static uint64_t timeFunc(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, uint64_t target, const int limbs)
     {
+      a.reset();
+
       addFunc(func, a, numLabels);
 
       void* funcPtr = a.make();
 
       uint64_t ret = callFunc(funcPtr, runtime, target, limbs);
-      a.reset();
 
       return ret;
     }
@@ -429,7 +483,7 @@ class ajs {
       for (list<line>::iterator i = start; i != end;)
       {
         int depCount = 0;
-        for (vector<int>::const_iterator ci = i->dependsOn.begin(); ci != i->dependsOn.end(); ++ci)
+        for (vector<int>::const_iterator ci = i->dependencies.begin(); ci != i->dependencies.end(); ++ci)
         {
           if (*ci >= from && *ci <= to)
             depCount++;
@@ -459,7 +513,7 @@ class ajs {
           {
             for (list<line>::iterator ci = lines[i].begin(); ci != lines[i].end(); ++ci)
             {
-              if (find(ci->dependsOn.begin(), ci->dependsOn.end(), cur->originalIndex) != ci->dependsOn.end())
+              if (find(ci->dependencies.begin(), ci->dependencies.end(), cur->originalIndex) != ci->dependencies.end())
               {
                 lines[i - 1].push_back(*ci);
                 ci = lines[i].erase(ci);
@@ -477,13 +531,14 @@ class ajs {
             break;
           if (level == to - from + 1)
           {
+            debug_print("%s\n", "");
             // time this permutation
             uint64_t newTime = timeFunc(func, a, runtime, numLabels, bestTime, limbs);
             if (bestTime == 0 || newTime < bestTime)
             {
               cout << "better sequence found: " << newTime;
               if (bestTime != 0)
-                cout <<" delta: " << bestTime - newTime;
+                cout << " delta: " << bestTime - newTime;
               cout << endl;
               bestFunc = func;
               bestTime = newTime;
@@ -498,7 +553,7 @@ class ajs {
           {
             for (list<line>::iterator ci = lines[i].begin(); ci != lines[i].end(); ++ci)
             {
-              if (find(ci->dependsOn.begin(), ci->dependsOn.end(), cur->originalIndex) != ci->dependsOn.end())
+              if (find(ci->dependencies.begin(), ci->dependencies.end(), cur->originalIndex) != ci->dependencies.end())
               {
                 lines[i + 1].push_back(*ci);
                 ci = lines[i].erase(ci);
@@ -528,13 +583,14 @@ class ajs {
       // Create JitRuntime and X86 Assembler/Compiler.
       JitRuntime runtime;
       X86Assembler a(&runtime);
-      //a.setLogger(&logger);
+      a.setLogger(&logger);
 
-      // Create the function we will work with
+      // Create the functions we will work with
       list<line> func, bestFunc;
-      // load it from the file given in arguments
+      // load original from the file given in arguments
       numLabels = loadFuncFromFile(func, a, file);
 
+      // returned if something went wrong when loading
       if (numLabels == -1)
         exit(EXIT_FAILURE);
 
@@ -547,12 +603,15 @@ class ajs {
       advance(startIt, start);
       list<line>::iterator endIt = bestFunc.begin();
       advance(endIt, end + 1);
+
       printf("optimisation complete, best sequence found for range %d-%d:\n", start + 1, end + 1);
       for (list<line>::const_iterator ci = startIt; ci != endIt; ++ci)
         printf("%d\n", ci->originalIndex + 1);
 
+      // write output using asmjits logger
       if (outFile != NULL)
       {
+        a.reset();
         a.setLogger(&logger);
         FILE* of = fopen(outFile, "w");
         logger.setStream(of);
