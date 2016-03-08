@@ -54,10 +54,6 @@ struct line {
 class ajs {
 
   public:
-    static bool cmp(const line &a, const line &b) {
-      return a.originalIndex < b.originalIndex;
-    }
-
     static std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
       std::stringstream ss(s);
       std::string item;
@@ -217,26 +213,45 @@ class ajs {
     // i.e. if a followed b originally whether swapping is permissible in general
     static bool dependsOn(const line& a, const line& b)
     {
+      // labels and align statements should have all possible dependencies
+      if (a.label != -1)
+        return true;
+      if (b.label != -1)
+        return true;
+
+      if (a.align != 0)
+        return true;
+      if (b.align != 0)
+        return true;
+
       const X86InstInfo& ainfo = X86Util::getInstInfo(a.instruction),
             &binfo = X86Util::getInstInfo(b.instruction);
 
       // if a or b are control flow instructions there is always a dependency
-      if (ainfo.hasInstFlag(kX86InstFlagFlow))
+      if (ainfo.getExtendedInfo().isFlow())
         return true;
-      if (binfo.hasInstFlag(kX86InstFlagFlow))
+      if (binfo.getExtendedInfo().isFlow())
         return true;
 
-      if (ainfo.hasInstFlag(kX86InstFlagTest))
+      if (ainfo.getExtendedInfo().isTest())
       {
         // if a is a test instruction there is a dependency on other test instructions
-        if (binfo.hasInstFlag(kX86InstFlagTest))
+        if (binfo.getExtendedInfo().isTest())
           return true;
 
-        // if a is a test instruction there is a dependency on other test instructions
+        // if a is a test instruction there is a dependency on arithmetic instructions
         if (binfo.getEncodingId() == kX86InstEncodingIdX86Arith)
           return true;
         // TODO only the last such instruction preceeding a jmp etc should have such a dep
       }
+
+      // if a reads flags set by b there is a dependency
+      if (ainfo.getEFlagsIn() & binfo.getEFlagsOut())
+        return true;
+
+      // if a sets flags also set by b there is a dependency
+      if (ainfo.getEFlagsOut() & binfo.getEFlagsOut())
+        return true;
 
       return false;
     }
