@@ -274,12 +274,12 @@ class ajs {
 
       while (getline(is, str))
       {
-        Operand ops[4] = { Operand(), Operand(), Operand(), Operand() };
         str = trim(str);
         if (str.length() == 0)
           continue;
         std::vector<string> parsed = split(str, '\t');
 
+        line newLine;
         // last character of first token is colon, so we are at a label
         if (*parsed[0].rbegin() == ':')
         {
@@ -287,60 +287,63 @@ class ajs {
           if (labels.count(label) == 0)
             labels[label] = a.newLabel();
 
-          func.insert(func.end(), (line){0, ops[0], ops[1], ops[2], ops[3],
-              labels[label].getId(), 0, index++});
+          newLine = (line){0, noOperand, noOperand, noOperand, noOperand,
+              labels[label].getId(), 0, index++};
 
           parsed.erase(parsed.begin());
+
+          // TODO fix this to allow for labels and instructions on same line in source
+          // try to deal with all manner of whitespace between label and instruction
+          //while (parsed.size() != 0 && trim(parsed[0]).length() == 0)
+          //{
+          //parsed.erase(parsed.begin());
+          //}
+          //if (parsed.size() == 0)
+          //continue;
         }
         else if (parsed[0].at(0) == '.') // first char of first token is '.' so have a directive
         {
           if (parsed[0] == ".align") {
             std::vector<std::string> args = split(parsed[1], ',');
-            func.insert(func.end(), (line){0, ops[0], ops[1], ops[2], ops[3], -1, getVal(args[0]), index++});
+            newLine = (line){0, noOperand, noOperand, noOperand, noOperand, -1, getVal(args[0]), index++};
           }
-          continue;
         }
-
-        // try to deal with all manner of whitespace between label and instruction
-        while (parsed.size() != 0 && trim(parsed[0]).length() == 0)
+        else // normal instruction
         {
-          parsed.erase(parsed.begin());
-        }
-        if (parsed.size() == 0)
-          continue;
+          Operand ops[4];
+          uint32_t id = X86Util::getInstIdByName(parsed[0].c_str());
 
-
-        uint32_t id = X86Util::getInstIdByName(parsed[0].c_str());
-
-        int i = 0;
-        if (parsed.size() > 1)
-        {
-          std::vector<std::string> args = split(parsed[1], ',');
-
-          // stick bracketed expressions back together again
-          for (int j = 0; j < args.size(); j++)
+          int i = 0;
+          if (parsed.size() > 1)
           {
-            string arg = args[j];
-            if (count(arg.begin(), arg.end(), '(') != count(arg.begin(), arg.end(), ')'))
+            std::vector<std::string> args = split(parsed[1], ',');
+
+            // stick bracketed expressions back together again
+            for (int j = 0; j < args.size(); j++)
             {
-              assert(j < args.size() - 1);
-              args[j] = args[j] + "," + args[j + 1];
-              args.erase(args.begin() + j+1);
-              j--;
+              string arg = args[j];
+              if (count(arg.begin(), arg.end(), '(') != count(arg.begin(), arg.end(), ')'))
+              {
+                assert(j < args.size() - 1);
+                args[j] = args[j] + "," + args[j + 1];
+                args.erase(args.begin() + j+1);
+                j--;
+              }
+            }
+
+            reverse(args.begin(), args.end());
+
+            for (i = 0; i < args.size(); i++)
+            {
+              ops[i] = getOpFromStr(args[i], a, labels);
             }
           }
+          for (; i < 4; i++)
+            ops[i] = noOperand;
 
-          reverse(args.begin(), args.end());
-
-          for (i = 0; i < args.size(); i++)
-          {
-            ops[i] = getOpFromStr(args[i], a, labels);
-          }
+          newLine = (line){id, ops[0], ops[1], ops[2], ops[3], -1, 0, index++, vector<int>()};
         }
-        for (; i < 4; i++)
-          ops[i] = noOperand;
 
-        line newLine = (line){id, ops[0], ops[1], ops[2], ops[3], -1, 0, index++, vector<int>()};
         // check for dependencies annotated in the source
         if (parsed.size() > 2 && parsed[2].substr(0,5) == "#ajs:")
         {
@@ -481,7 +484,7 @@ class ajs {
       return ret;
     }
 
-    static list<line> superOptimise(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, const int from, const int to, const int limbs)
+    static list<line> superOptimise(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, const int from, const int to, const int limbs, const int verbose)
     {
       uint64_t bestTime = 0;
       int count = 0;
@@ -546,6 +549,8 @@ class ajs {
             break;
           if (level == to - from + 1)
           {
+            if (verbose)
+              cout << endl << "timing sequence:" << endl;
             // time this permutation
             uint64_t newTime = timeFunc(func, a, runtime, numLabels, bestTime, limbs);
             if (bestTime == 0 || newTime < bestTime)
@@ -618,7 +623,7 @@ class ajs {
         end = func.size() - 1;
       assert(end <= func.size() - 1);
       assert(start <= end);
-      bestFunc = superOptimise(func, a, runtime, numLabels, start, end, limbs);
+      bestFunc = superOptimise(func, a, runtime, numLabels, start, end, limbs, verbose);
 
       list<line>::iterator startIt = bestFunc.begin();
       advance(startIt, start);
