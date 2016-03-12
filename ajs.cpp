@@ -39,6 +39,7 @@ using namespace std;
  * do registers more programmatically?
  * add help option, usage message etc.
  * add make dependencies for headers
+ * allow for other function signatures
  */
 
 
@@ -209,6 +210,40 @@ class ajs {
       return noOperand;
     }
 
+    // returns whether or not b references a, i.e. they are equal regs or memory locations
+    // or the memory location b references a if a is a register
+    static bool references(const Operand& a, const Operand& b)
+    {
+      if (a.isReg() && b.isReg())
+      {
+        const X86Reg* areg = static_cast<const X86Reg*>(&a);
+        const X86Reg* breg = static_cast<const X86Reg*>(&b);
+        return *areg == *breg;
+      }
+          //&& a.getRegType() == b.getRegType()
+         // && a.getRegIndex() == b.getRegIndex())
+        //return true;
+      if (b.isMem())
+      {
+        const X86Mem* bmem = static_cast<const X86Mem*>(&b);
+        if (a.isMem())
+        {
+          const X86Mem* amem = static_cast<const X86Mem*>(&a);
+          return *amem == *bmem;
+        }
+        else if (a.isReg())
+        {
+          const X86Reg* areg = static_cast<const X86Reg*>(&a);
+          if (areg->getRegIndex() == bmem->getBase())
+            return true;
+          if (areg->getRegIndex() == bmem->getIndex())
+            return true;
+        }
+      }
+
+      return false;
+    }
+
     // returns whether line a depends on line b or not
     // i.e. if a followed b originally whether swapping is permissible in general
     static bool dependsOn(const line& a, const line& b)
@@ -242,7 +277,7 @@ class ajs {
         // if a is a test instruction there is a dependency on arithmetic instructions
         if (binfo.getEncodingId() == kX86InstEncodingIdX86Arith)
           return true;
-        // TODO only the last such instruction preceeding a jmp etc should have such a dep
+        // TODO only the last such instruction preceding a jmp etc should have such a dep
       }
 
       // if a reads flags set by b there is a dependency
@@ -253,6 +288,20 @@ class ajs {
       if (ainfo.getEFlagsOut() & binfo.getEFlagsOut())
         return true;
 
+      // if a sets flags read by b there is a dependency
+      if (ainfo.getEFlagsOut() & binfo.getEFlagsOut())
+        return true;
+
+      // a likely writes to a.ops[0] so if b reads or writes to a.op[0] there is a dep
+      if (references(a.ops[0], b.ops[0]) || references(a.ops[0], b.ops[1])
+          || references(a.ops[0], b.ops[2]) || references(a.ops[0], b.ops[3]))
+        return true;
+
+      // b likely writes to b.ops[0] so if a reads or writes to op[0] there is a dep,
+      if (references(b.ops[0], a.ops[0]) || references(b.ops[0], a.ops[1])
+          || references(b.ops[0], a.ops[2]) || references(b.ops[0], a.ops[3]))
+        return true;
+
       return false;
     }
 
@@ -261,10 +310,13 @@ class ajs {
       int index = 0;
       map<string, Label> labels;
 
-      ifstream is(file);
+      ifstream ifs;
+      if (file != NULL)
+        ifs.open(file);
+      istream& is = file != NULL ? ifs : cin;
       string str;
 
-      if (is.bad() || !is.is_open())
+      if (is.bad())
       {
         cout << "error: opening file failed, is filename correct?\n" << endl;
         return -1;
@@ -351,19 +403,30 @@ class ajs {
           for (vector<string>::const_iterator ci = deps.begin(); ci != deps.end(); ++ci)
           {
             int newDep = atoi(ci->c_str()) - 1;
-            assert(newDep < index);
+            assert(newDep < index); // make sure the user gave us a valid sequence
             newLine.dependencies.push_back(newDep);
           }
         }
 
         // try to determine other dependencies
-        for (list<line>::const_iterator ci = func.begin(); ci != func.end(); ++ci)
+        for (list<line>::const_iterator prevLine = func.begin(); prevLine != func.end(); ++prevLine)
         {
-          if (dependsOn(newLine, *ci))
+          if (dependsOn(newLine, *prevLine))
           {
-            if (find(newLine.dependencies.begin(), newLine.dependencies.end(), ci->originalIndex) == newLine.dependencies.end())
-              newLine.dependencies.push_back(ci->originalIndex);
-            // TODO get rid of dependency chains.
+            if (find(newLine.dependencies.begin(), newLine.dependencies.end(), prevLine->originalIndex) == newLine.dependencies.end())
+            {
+              newLine.dependencies.push_back(prevLine->originalIndex);
+
+              // we can now remove any of prevLine's dependencies from newLine
+              // TODO does this make things faster?
+              std::vector<int>::iterator position = newLine.dependencies.begin();
+              for (vector<int>::const_iterator ci2 = prevLine->dependencies.begin(); ci2 != prevLine->dependencies.end(); ++ci2)
+              {
+                position = std::find(position, newLine.dependencies.end(), *ci2);
+                if (position != newLine.dependencies.end())
+                  position = newLine.dependencies.erase(position);
+              }
+            }
           }
         }
 
@@ -373,7 +436,7 @@ class ajs {
       return labels.size();
     }
 
-    static uint64_t callFunc(void* funcPtr, JitRuntime& runtime, uint64_t target, const int limbs)
+    static uint64_t callFunc(void* funcPtr, JitRuntime& runtime, uint64_t target, const int limbs, const int verbose)
     {
       // In order to run 'funcPtr' it has to be casted to the desired type.
       // Typedef is a recommended and safe way to create a function-type.
@@ -388,6 +451,7 @@ class ajs {
       uint64_t start, end, total;
       uint64_t *mpn1, *mpn2, *mpn3;
       const int loopsize = 150;
+      int k = 0;
       mpn1 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       mpn2 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       mpn3 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
@@ -395,7 +459,7 @@ class ajs {
       for (int timing = 0; timing < 2; timing++)
       {
         total = 0;
-        for (int k = 0; k < loopsize; k++)
+        for (k = 0; k < loopsize; k++)
         {
           // calling func here makes gcc put callableFunc in r14
           // this reduces the overhead in the timing a little.
@@ -423,18 +487,19 @@ class ajs {
           end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
           total += end - start;
 
-          if (target != 0 && total > (target + 20) * loopsize)
+          if (target != 0 && k >= loopsize >> 2 && total > (target + 20) * k)
           {
-            //printf("cannot hit target, aborting: ");
+            if (verbose && timing == 1)
+              printf("cannot hit target, aborting\n");
             break;
           }
         }
       }
 
-      total /= loopsize;
+      total /= k + 1;
 
-      //printf("total time=%ld\n", total);
-      //printf("o=%lu\n", o); // Outputs "o=8" for and_n.
+      if (verbose)
+        printf("total time: %ld\n", total);
 
       free(mpn1);
       free(mpn2);
@@ -471,7 +536,7 @@ class ajs {
     }
 
     // makes a function with assembler then times the generated function with callFunc.
-    static uint64_t timeFunc(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, uint64_t target, const int limbs)
+    static uint64_t timeFunc(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, uint64_t target, const int limbs, const int verbose)
     {
       a.reset();
 
@@ -479,7 +544,7 @@ class ajs {
 
       void* funcPtr = a.make();
 
-      uint64_t ret = callFunc(funcPtr, runtime, target, limbs);
+      uint64_t ret = callFunc(funcPtr, runtime, target, limbs, verbose);
 
       return ret;
     }
@@ -492,6 +557,10 @@ class ajs {
       vector< list<line> > lines(to + 1 - from);
       vector< int > remaining(to + 2 - from);
       list<line> bestFunc;
+
+      bestTime = timeFunc(func, a, runtime, numLabels, bestTime, limbs, verbose);
+      bestFunc = func;
+      printf("original sequence: %ld\n", bestTime);
 
       list<line>::iterator start = func.begin();
       advance(start, from);
@@ -552,7 +621,7 @@ class ajs {
             if (verbose)
               cout << endl << "timing sequence:" << endl;
             // time this permutation
-            uint64_t newTime = timeFunc(func, a, runtime, numLabels, bestTime, limbs);
+            uint64_t newTime = timeFunc(func, a, runtime, numLabels, bestTime, limbs, verbose);
             if (bestTime == 0 || newTime < bestTime)
             {
               cout << "better sequence found: " << newTime;
@@ -592,7 +661,8 @@ class ajs {
       return bestFunc;
     }
 
-    static int run(const char* file, int start, int end, const int limbs, const char* outFile, const int verbose) {
+    static int run(const char* file, int start, int end, const int limbs, const char* outFile, const int verbose)
+    {
       FileLogger logger(stdout);
       int numLabels = 0;
 
@@ -653,6 +723,7 @@ int main(int argc, char* argv[])
 {
   int c, start = 0, end = 0, limbs = 111, verbose = 0;
   char *outFile = NULL;
+  char *inFile = NULL;
 
   // deal with optional arguments: limbs and output file
   while (1) {
@@ -697,11 +768,8 @@ int main(int argc, char* argv[])
     }
   }
 
-  if (argc < 2)
-  {
-    cout << "error: expected filename" << endl;
-    exit(EXIT_FAILURE);
-  }
+  if (argc >= 2)
+    inFile = argv[optind];
 
-  return ajs::run(argv[optind], start, end, limbs, outFile, verbose);
+  return ajs::run(inFile, start, end, limbs, outFile, verbose);
 }
