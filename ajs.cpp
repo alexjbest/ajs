@@ -388,6 +388,7 @@ class ajs {
           {
             Operand ops[4];
             uint32_t id = X86Util::getInstIdByName(parsed[0].c_str());
+            assert(id != kInstIdNone);
             parsed.erase(parsed.begin());
 
             int i = 0;
