@@ -64,9 +64,25 @@ class ajs {
       return elems;
     }
 
+    static std::vector<std::string> &split2(const std::string &s, char delim, char delim2, std::vector<std::string> &elems) {
+      std::stringstream ss(s);
+      std::string item;
+      while (std::getline(ss, item, delim)) {
+        std::vector<std::string> elems2 = split(item, delim2);
+        elems.insert(elems.end(), elems2.begin(), elems2.end());
+      }
+      return elems;
+    }
+
     static std::vector<std::string> split(const std::string &s, char delim) {
       std::vector<std::string> elems;
       split(s, delim, elems);
+      return elems;
+    }
+
+    static std::vector<std::string> split2(const std::string &s, char delim, char delim2) {
+      std::vector<std::string> elems;
+      split2(s, delim, delim2, elems);
       return elems;
     }
 
@@ -329,7 +345,7 @@ class ajs {
         str = trim(str);
         if (str.length() == 0)
           continue;
-        std::vector<string> parsed = split(str, '\t');
+        std::vector<string> parsed = split2(str, '\t', ' ');
 
         line newLine;
         // last character of first token is colon, so we are at a label
@@ -358,6 +374,10 @@ class ajs {
           if (parsed[0] == ".align") {
             std::vector<std::string> args = split(parsed[1], ',');
             newLine = (line){0, noOperand, noOperand, noOperand, noOperand, -1, getVal(args[0]), index++};
+          }
+          else
+          {
+            continue;
           }
         }
         else // normal instruction
