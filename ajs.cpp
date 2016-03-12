@@ -107,7 +107,7 @@ class ajs {
       if (count(val.begin() + 1, val.end(), '-') > 0)
       {
         vector<string> vals = split(val, '-');
-        return getVal(vals[0]) + getVal(vals[1]);
+        return getVal(vals[0]) - getVal(vals[1]);
       }
       if (count(val.begin() + 1, val.end(), '+') > 0)
       {
@@ -350,112 +350,114 @@ class ajs {
         str = trim(str);
         if (str.length() == 0)
           continue;
+
         std::vector<string> parsed = split2(str, '\t', ' ');
 
-        line newLine;
-        // last character of first token is colon, so we are at a label
-        if (*parsed[0].rbegin() == ':')
+        while (parsed.size() > 0)
         {
-          string label = parsed[0].substr(0, parsed[0].size() - 1);
-          if (labels.count(label) == 0)
-            labels[label] = a.newLabel();
+          line newLine;
+          // last character of first token is colon, so we are at a label
+          if (*parsed[0].rbegin() == ':')
+          {
+            string label = parsed[0].substr(0, parsed[0].size() - 1);
+            if (labels.count(label) == 0)
+              labels[label] = a.newLabel();
 
-          newLine = (line){0, noOperand, noOperand, noOperand, noOperand,
+            newLine = (line){0, noOperand, noOperand, noOperand, noOperand,
               labels[label].getId(), 0, index++};
 
-          parsed.erase(parsed.begin());
-
-          // TODO fix this to allow for labels and instructions on same line in source
-          // try to deal with all manner of whitespace between label and instruction
-          //while (parsed.size() != 0 && trim(parsed[0]).length() == 0)
-          //{
-          //parsed.erase(parsed.begin());
-          //}
-          //if (parsed.size() == 0)
-          //continue;
-        }
-        else if (parsed[0].at(0) == '.') // first char of first token is '.' so have a directive
-        {
-          if (parsed[0] == ".align") {
-            std::vector<std::string> args = split(parsed[1], ',');
-            newLine = (line){0, noOperand, noOperand, noOperand, noOperand, -1, getVal(args[0]), index++};
+            parsed.erase(parsed.begin());
           }
-          else
+          else if (parsed[0].at(0) == '.') // first char of first token is '.' so have a directive
           {
-            continue;
-          }
-        }
-        else // normal instruction
-        {
-          Operand ops[4];
-          uint32_t id = X86Util::getInstIdByName(parsed[0].c_str());
+            if (parsed[0] == ".align") {
+              parsed.erase(parsed.begin());
 
-          int i = 0;
-          if (parsed.size() > 1)
-          {
-            std::vector<std::string> args = split(parsed[1], ',');
+              std::vector<std::string> args = split(parsed[0], ',');
+              while (parsed.size() > 0) // done with this line
+                parsed.erase(parsed.begin());
 
-            // stick bracketed expressions back together again
-            for (int j = 0; j < args.size(); j++)
+              newLine = (line){0, noOperand, noOperand, noOperand, noOperand, -1, getVal(args[0]), index++};
+            }
+            else // ignore non-align directives
             {
-              string arg = args[j];
-              if (count(arg.begin(), arg.end(), '(') != count(arg.begin(), arg.end(), ')'))
+              break;
+            }
+          }
+          else // normal instruction
+          {
+            Operand ops[4];
+            uint32_t id = X86Util::getInstIdByName(parsed[0].c_str());
+            parsed.erase(parsed.begin());
+
+            int i = 0;
+            if (parsed.size() > 0)
+            {
+              std::vector<std::string> args = split(parsed[0], ',');
+              parsed.erase(parsed.begin());
+
+              // stick bracketed expressions back together again
+              for (int j = 0; j < args.size(); j++)
               {
-                assert(j < args.size() - 1);
-                args[j] = args[j] + "," + args[j + 1];
-                args.erase(args.begin() + j+1);
-                j--;
+                string arg = args[j];
+                if (count(arg.begin(), arg.end(), '(') != count(arg.begin(), arg.end(), ')'))
+                {
+                  assert(j < args.size() - 1);
+                  args[j] = args[j] + "," + args[j + 1];
+                  args.erase(args.begin() + j + 1);
+                  j--;
+                }
+              }
+
+              reverse(args.begin(), args.end());
+
+              for (i = 0; i < args.size(); i++)
+                ops[i] = getOpFromStr(args[i], a, labels);
+            }
+            for (; i < 4; i++)
+              ops[i] = noOperand;
+
+            newLine = (line){id, ops[0], ops[1], ops[2], ops[3], -1, 0, index++, vector<int>()};
+          }
+
+          // check for dependencies annotated in the source
+          if (parsed.size() > 0 && parsed[0].substr(0,5) == "#ajs:")
+          {
+            std::vector<std::string> deps = split(parsed[0].substr(5), ',');
+            parsed.erase(parsed.begin());
+
+            for (vector<string>::const_iterator ci = deps.begin(); ci != deps.end(); ++ci)
+            {
+              int newDep = atoi(ci->c_str()) - 1;
+              assert(newDep < index); // make sure the user gave us a valid sequence
+              newLine.dependencies.push_back(newDep);
+            }
+          }
+
+          // try to determine other dependencies
+          for (list<line>::const_iterator prevLine = func.begin(); prevLine != func.end(); ++prevLine)
+          {
+            if (dependsOn(newLine, *prevLine))
+            {
+              if (find(newLine.dependencies.begin(), newLine.dependencies.end(), prevLine->originalIndex) == newLine.dependencies.end())
+              {
+                newLine.dependencies.push_back(prevLine->originalIndex);
+
+                // we can now remove any of prevLine's dependencies from newLine
+                // TODO does this make things faster?
+                std::vector<int>::iterator position = newLine.dependencies.begin();
+                for (vector<int>::const_iterator ci2 = prevLine->dependencies.begin(); ci2 != prevLine->dependencies.end(); ++ci2)
+                {
+                  position = std::find(position, newLine.dependencies.end(), *ci2);
+                  if (position != newLine.dependencies.end())
+                    position = newLine.dependencies.erase(position);
+                }
               }
             }
-
-            reverse(args.begin(), args.end());
-
-            for (i = 0; i < args.size(); i++)
-            {
-              ops[i] = getOpFromStr(args[i], a, labels);
-            }
           }
-          for (; i < 4; i++)
-            ops[i] = noOperand;
 
-          newLine = (line){id, ops[0], ops[1], ops[2], ops[3], -1, 0, index++, vector<int>()};
+          func.insert(func.end(), newLine);
         }
-
-        // check for dependencies annotated in the source
-        if (parsed.size() > 2 && parsed[2].substr(0,5) == "#ajs:")
-        {
-          std::vector<std::string> deps = split(parsed[2].substr(5), ',');
-          for (vector<string>::const_iterator ci = deps.begin(); ci != deps.end(); ++ci)
-          {
-            int newDep = atoi(ci->c_str()) - 1;
-            assert(newDep < index); // make sure the user gave us a valid sequence
-            newLine.dependencies.push_back(newDep);
-          }
-        }
-
-        // try to determine other dependencies
-        for (list<line>::const_iterator prevLine = func.begin(); prevLine != func.end(); ++prevLine)
-        {
-          if (dependsOn(newLine, *prevLine))
-          {
-            if (find(newLine.dependencies.begin(), newLine.dependencies.end(), prevLine->originalIndex) == newLine.dependencies.end())
-            {
-              newLine.dependencies.push_back(prevLine->originalIndex);
-
-              // we can now remove any of prevLine's dependencies from newLine
-              // TODO does this make things faster?
-              std::vector<int>::iterator position = newLine.dependencies.begin();
-              for (vector<int>::const_iterator ci2 = prevLine->dependencies.begin(); ci2 != prevLine->dependencies.end(); ++ci2)
-              {
-                position = std::find(position, newLine.dependencies.end(), *ci2);
-                if (position != newLine.dependencies.end())
-                  position = newLine.dependencies.erase(position);
-              }
-            }
-          }
-        }
-
-        func.insert(func.end(), newLine);
       }
       a.reset();
       return labels.size();
