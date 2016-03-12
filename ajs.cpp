@@ -104,6 +104,16 @@ class ajs {
     }
 
     static int64_t getVal(string val) {
+      if (count(val.begin() + 1, val.end(), '-') > 0)
+      {
+        vector<string> vals = split(val, '-');
+        return getVal(vals[0]) + getVal(vals[1]);
+      }
+      if (count(val.begin() + 1, val.end(), '+') > 0)
+      {
+        vector<string> vals = split(val, '+');
+        return getVal(vals[0]) + getVal(vals[1]);
+      }
       if (count(val.begin(), val.end(), 'x') > 0)
         return std::strtoll(val.c_str(), NULL, 16);
       return std::strtoll(val.c_str(), NULL, 10);
@@ -172,12 +182,7 @@ class ajs {
       if (i > 0)
       {
         string d = addr.substr(0, i);
-        if (count(d.begin(), d.end(), 'x') > 0) {
-          disp = std::strtoll(d.c_str(), NULL, 16);
-        }
-        else {
-          disp = std::strtoll(d.c_str(), NULL, 10);
-        }
+        disp = getVal(d);
       }
       vector<string> bis = split(addr.substr(i + 1, addr.size() - 2 - i), ',');
       X86GpReg base;
