@@ -464,17 +464,8 @@ class ajs {
       return labels.size();
     }
 
-    static uint64_t callFunc(void* funcPtr, JitRuntime& runtime, uint64_t target, const int limbs, const int verbose)
+    static uint64_t callFunc(void* funcPtr, JitRuntime& runtime, uint64_t target, const int limbs, const int verbose, const uint64_t overhead)
     {
-      // In order to run 'funcPtr' it has to be casted to the desired type.
-      // Typedef is a recommended and safe way to create a function-type.
-      typedef int (*FuncType)(uint64_t*, uint64_t*, uint64_t*, uint64_t);
-      //typedef int (*FuncType)(uint64_t, uint64_t*, uint64_t, uint64_t);
-
-      // Using asmjit_cast is purely optional, it's basically a C-style cast
-      // that tries to make it visible that a function-type is returned.
-      FuncType callableFunc = asmjit_cast<FuncType>(funcPtr);
-
       uint32_t cycles_high, cycles_high1, cycles_low, cycles_low1;
       uint64_t start, end, total;
       uint64_t *mpn1, *mpn2, *mpn3;
@@ -483,6 +474,14 @@ class ajs {
       mpn1 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       mpn2 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       mpn3 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
+
+      // In order to run 'funcPtr' it has to be casted to the desired type.
+      // Typedef is a recommended and safe way to create a function-type.
+      typedef int (*FuncType)(typeof(mpn1), typeof(mpn2), typeof(mpn3), uint64_t);
+
+      // Using asmjit_cast is purely optional, it's basically a C-style cast
+      // that tries to make it visible that a function-type is returned.
+      FuncType callableFunc = asmjit_cast<FuncType>(funcPtr);
 
       for (int timing = 0; timing < 2; timing++)
       {
@@ -513,7 +512,7 @@ class ajs {
 
           start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
           end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
-          total += end - start;
+          total += end - start - overhead;
 
           if (target != 0 && k >= loopsize >> 2 && total > (target + 20) * k)
           {
@@ -564,7 +563,7 @@ class ajs {
     }
 
     // makes a function with assembler then times the generated function with callFunc.
-    static uint64_t timeFunc(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, uint64_t target, const int limbs, const int verbose)
+    static uint64_t timeFunc(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, uint64_t target, const int limbs, const int verbose, uint64_t overhead)
     {
       a.reset();
 
@@ -572,21 +571,24 @@ class ajs {
 
       void* funcPtr = a.make();
 
-      uint64_t ret = callFunc(funcPtr, runtime, target, limbs, verbose);
+      uint64_t ret = callFunc(funcPtr, runtime, target, limbs, verbose, overhead);
 
       return ret;
     }
 
     static list<line> superOptimise(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, const int from, const int to, const int limbs, const int verbose)
     {
-      uint64_t bestTime = 0;
+      uint64_t bestTime = 0, overhead = 0;
       int count = 0;
       int level = 0;
       vector< list<line> > lines(to + 1 - from);
       vector< int > remaining(to + 2 - from);
       list<line> bestFunc;
 
-      bestTime = timeFunc(func, a, runtime, numLabels, bestTime, limbs, verbose);
+      list<line> emptyFunc(1, (line){X86Util::getInstIdByName("ret"), noOperand, noOperand, noOperand, noOperand, -1, 0, 0, vector<int>()});
+      overhead = timeFunc(emptyFunc, a, runtime, numLabels, bestTime, limbs, verbose, overhead);
+
+      bestTime = timeFunc(func, a, runtime, numLabels, bestTime, limbs, verbose, overhead);
       bestFunc = func;
       printf("original sequence: %ld\n", bestTime);
 
@@ -649,7 +651,7 @@ class ajs {
             if (verbose)
               cout << endl << "timing sequence:" << endl;
             // time this permutation
-            uint64_t newTime = timeFunc(func, a, runtime, numLabels, bestTime, limbs, verbose);
+            uint64_t newTime = timeFunc(func, a, runtime, numLabels, bestTime, limbs, verbose, overhead);
             if (bestTime == 0 || newTime < bestTime)
             {
               cout << "better sequence found: " << newTime;
