@@ -29,7 +29,6 @@ using namespace std;
 /* TODO list:
  * ----------
  * check if for any other base for immediate values needed
- * see if there is some way to do getRegByName in asmjit
  * extend parsing part to handle spaces well
  * check if there are other directives that will affect performance
  * check if there are other directives that will affect correctness
@@ -39,7 +38,6 @@ using namespace std;
  * do registers more programmatically?
  * add help option, usage message etc.
  * add make dependencies for headers
- * allow for other function signatures
  */
 
 
@@ -104,6 +102,7 @@ class ajs {
     }
 
     static int64_t getVal(string val) {
+      val = trim(val);
       if (count(val.begin() + 1, val.end(), '-') > 0)
       {
         vector<string> vals = split(val, '-');
@@ -175,7 +174,7 @@ class ajs {
     }
 
     // Parses expressions of the form disp(base,offset,scalar) into asmjits X86Mem
-    static X86Mem getPtrFromAddress(string addr)
+    static X86Mem getPtrFromAddress(string addr, uint32_t size)
     {
       size_t i = addr.find("(");
       int32_t disp = 0;
@@ -192,8 +191,8 @@ class ajs {
       {
         X86GpReg index = getGpRegFromName(trim(bis[1]).substr(1));
         uint32_t scalar;
-        if (bis[2].length() != 0)
-          scalar = std::strtoul(bis[2].c_str(), NULL, 10);
+        if (bis.size() > 2 && bis[2].length() != 0)
+          scalar = getVal(bis[2]);
         else
           scalar = 1;
         uint32_t shift =
@@ -202,20 +201,20 @@ class ajs {
           (scalar == 4) ? 2 :
           (scalar == 8) ? 3 : -1;
         if (trim(bis[0]).length() == 0)
-          return ptr_abs(0, index, shift, disp);
-        return ptr(base, index, shift, disp);
+          return ptr_abs(0, index, shift, disp, size);
+        return ptr(base, index, shift, disp, size);
       }
       if (trim(bis[0]).length() == 0)
-        return ptr_abs(0, disp);
-      return ptr(base, disp);
+        return ptr_abs(0, disp, size);
+      return ptr(base, disp, size);
     }
 
-    static Operand getOpFromStr(string op, X86Assembler& a, map<string, Label>& labels)
+    static Operand getOpFromStr(string op, X86Assembler& a, map<string, Label>& labels, uint32_t size)
     {
       op = trim(op);
 
       if (count(op.begin(), op.end(), '(') > 0)
-        return getPtrFromAddress(op);
+        return getPtrFromAddress(op, size);
       string sub = op.substr(1);
       if (op.at(0) == '%')
         return getRegFromName(sub);
@@ -397,6 +396,28 @@ class ajs {
           {
             Operand ops[4];
             uint32_t id = X86Util::getInstIdByName(parsed[0].c_str());
+            uint32_t size = 0;
+            if (id == kInstIdNone)
+            {
+              size = 1;
+              // last character of isntruction is q,w try removing it
+              switch (*parsed[0].rbegin())
+              {
+                case 'q':
+                  size *= 2;
+
+                case 'l':
+                  size *= 2;
+
+                case 'w':
+                  size *= 2;
+
+                case 'b':
+                  id = X86Util::getInstIdByName(parsed[0].substr(0, parsed[0].size() - 1).c_str());
+                  break;
+              }
+              assert(id != kInstIdNone);
+            }
             assert(id != kInstIdNone);
             parsed.erase(parsed.begin());
 
@@ -422,7 +443,7 @@ class ajs {
               reverse(args.begin(), args.end());
 
               for (i = 0; i < args.size(); i++)
-                ops[i] = getOpFromStr(args[i], a, labels);
+                ops[i] = getOpFromStr(args[i], a, labels, size);
             }
             for (; i < 4; i++)
               ops[i] = noOperand;
