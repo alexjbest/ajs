@@ -355,9 +355,18 @@ class ajs {
 
         while (parsed.size() > 0)
         {
+          parsed[0] = trim(parsed[0]);
+          if (parsed[0].length() == 0)
+          {
+            parsed.erase(parsed.begin());
+            continue;
+          }
           line newLine;
-          // last character of first token is colon, so we are at a label
-          if (*parsed[0].rbegin() == ':')
+          if (parsed[0].at(0) == '#') // first char of first token is '#' so have a comment
+          {
+            break;
+          }
+          else if (*parsed[0].rbegin() == ':') // last character of first token is colon, so we are at a label
           {
             string label = parsed[0].substr(0, parsed[0].size() - 1);
             if (labels.count(label) == 0)
@@ -566,27 +575,57 @@ class ajs {
           arg1, arg2, arg3, arg4, arg5, arg6);
     }
 
-    static list<line> superOptimise(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, const int from, const int to, const uint64_t limbs, const int verbose)
+    static list<line> superOptimise(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, const int from, const int to, const uint64_t limbs, const int verbose, string signature)
     {
       uint64_t bestTime = 0, overhead = 0;
-      uint64_t *mpn1, *mpn2, *mpn3;
+      uint64_t *mpn1, *mpn2, *mpn3, *mpn4;
       uint64_t arg1, arg2, arg3, arg4, arg5, arg6;
       int count = 0;
       int level = 0;
       vector< list<line> > lines(to + 1 - from);
       vector< int > remaining(to + 2 - from);
       list<line> bestFunc;
-
       mpn1 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       mpn2 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       mpn3 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
+      mpn4 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
 
-      arg1 = reinterpret_cast<uint64_t>(mpn1);
-      arg2 = reinterpret_cast<uint64_t>(mpn2);
-      arg3 = reinterpret_cast<uint64_t>(mpn3);
-      arg4 = reinterpret_cast<uint64_t>(limbs);
-      arg5 = reinterpret_cast<uint64_t>(limbs);
-      arg6 = reinterpret_cast<uint64_t>(limbs);
+      if (signature == "double")
+      {
+        arg1 = reinterpret_cast<uint64_t>(mpn1);
+        arg2 = reinterpret_cast<uint64_t>(limbs);
+      }
+      else if (signature == "copyi")
+      {
+        arg1 = reinterpret_cast<uint64_t>(mpn1);
+        arg2 = reinterpret_cast<uint64_t>(mpn2);
+        arg3 = reinterpret_cast<uint64_t>(limbs);
+      }
+      else if (signature == "addadd_n")
+      {
+        arg1 = reinterpret_cast<uint64_t>(mpn1);
+        arg2 = reinterpret_cast<uint64_t>(mpn2);
+        arg3 = reinterpret_cast<uint64_t>(mpn3);
+        arg4 = reinterpret_cast<uint64_t>(mpn4);
+        arg5 = reinterpret_cast<uint64_t>(limbs);
+      }
+      else if (signature == "addlsh_n")
+      {
+        arg1 = reinterpret_cast<uint64_t>(mpn1);
+        arg2 = reinterpret_cast<uint64_t>(mpn2);
+        arg3 = reinterpret_cast<uint64_t>(mpn3);
+        arg4 = reinterpret_cast<uint64_t>(mpn4);
+        arg5 = reinterpret_cast<uint64_t>(limbs);
+      }
+      else
+      {
+        if (signature != "add_n")
+          printf("signature not recognised, defaulting to add_n\n");
+        arg1 = reinterpret_cast<uint64_t>(mpn1);
+        arg2 = reinterpret_cast<uint64_t>(mpn2);
+        arg3 = reinterpret_cast<uint64_t>(mpn3);
+        arg4 = reinterpret_cast<uint64_t>(limbs);
+      }
 
       list<line> emptyFunc(1, (line){X86Util::getInstIdByName("ret"), noOperand, noOperand, noOperand, noOperand, -1, 0, 0, vector<int>()});
       overhead = timeFunc(emptyFunc, a, runtime, numLabels, bestTime, verbose, overhead,
@@ -697,11 +736,12 @@ class ajs {
       free(mpn1);
       free(mpn2);
       free(mpn3);
+      free(mpn4);
 
       return bestFunc;
     }
 
-    static int run(const char* file, int start, int end, const uint64_t limbs, const char* outFile, const int verbose)
+    static int run(const char* file, int start, int end, const uint64_t limbs, const char* outFile, const int verbose, const string signature)
     {
       FileLogger logger(stdout);
       int numLabels = 0;
@@ -733,7 +773,7 @@ class ajs {
         end = func.size() - 1;
       assert(end <= func.size() - 1);
       assert(start <= end);
-      bestFunc = superOptimise(func, a, runtime, numLabels, start, end, limbs, verbose);
+      bestFunc = superOptimise(func, a, runtime, numLabels, start, end, limbs, verbose, signature);
 
       list<line>::iterator startIt = bestFunc.begin();
       advance(startIt, start);
@@ -764,20 +804,22 @@ int main(int argc, char* argv[])
   int c, start = 0, end = 0, limbs = 111, verbose = 0;
   char *outFile = NULL;
   char *inFile = NULL;
+  string signature = "add_n";
 
   // deal with optional arguments: limbs and output file
   while (1) {
     int this_option_optind = optind ? optind : 1;
     int option_index = 0;
     static struct option long_options[] = {
-      {"limbs",   required_argument, 0,  0 },
-      {"out",     required_argument, 0,  0 },
-      {"range",   required_argument, 0,  0 },
-      {"verbose", no_argument,       0,  0 },
-      {0,         0,                 0,  0 }
+      {"limbs",     required_argument, 0,  0 },
+      {"out",       required_argument, 0,  0 },
+      {"range",     required_argument, 0,  0 },
+      {"signature", required_argument, 0,  0 },
+      {"verbose",   no_argument,       0,  0 },
+      {0,           0,                 0,  0 }
     };
 
-    c = getopt_long(argc, argv, "l:o:r:v",
+    c = getopt_long(argc, argv, "l:o:r:s:v",
         long_options, &option_index);
     if (c == -1)
       break;
@@ -802,6 +844,11 @@ int main(int argc, char* argv[])
         }
         break;
 
+      case 's':
+        signature = string(optarg);
+        printf("using function signature %s\n", optarg);
+        break;
+
       case 'v':
         verbose = 1;
         break;
@@ -811,5 +858,5 @@ int main(int argc, char* argv[])
   if (argc >= 2)
     inFile = argv[optind];
 
-  return ajs::run(inFile, start, end, limbs, outFile, verbose);
+  return ajs::run(inFile, start, end, limbs, outFile, verbose, signature);
 }
