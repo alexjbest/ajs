@@ -400,7 +400,7 @@ class ajs {
             if (id == kInstIdNone)
             {
               size = 1;
-              // last character of isntruction is q,w try removing it
+              // last character of instruction is q,l,w,b try removing it
               switch (*parsed[0].rbegin())
               {
                 case 'q':
@@ -416,7 +416,6 @@ class ajs {
                   id = X86Util::getInstIdByName(parsed[0].substr(0, parsed[0].size() - 1).c_str());
                   break;
               }
-              assert(id != kInstIdNone);
             }
             assert(id != kInstIdNone);
             parsed.erase(parsed.begin());
