@@ -464,20 +464,17 @@ class ajs {
       return labels.size();
     }
 
-    static uint64_t callFunc(void* funcPtr, JitRuntime& runtime, uint64_t target, const int limbs, const int verbose, const uint64_t overhead)
+    static uint64_t callFunc(void* funcPtr, JitRuntime& runtime, uint64_t target, const int verbose, const uint64_t overhead,
+        uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
       uint32_t cycles_high, cycles_high1, cycles_low, cycles_low1;
       uint64_t start, end, total;
-      uint64_t *mpn1, *mpn2, *mpn3;
       const int loopsize = 150;
       int k = 0;
-      mpn1 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
-      mpn2 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
-      mpn3 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
 
       // In order to run 'funcPtr' it has to be casted to the desired type.
       // Typedef is a recommended and safe way to create a function-type.
-      typedef int (*FuncType)(typeof(mpn1), typeof(mpn2), typeof(mpn3), uint64_t);
+      typedef int (*FuncType)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t);
 
       // Using asmjit_cast is purely optional, it's basically a C-style cast
       // that tries to make it visible that a function-type is returned.
@@ -488,10 +485,6 @@ class ajs {
         total = 0;
         for (k = 0; k < loopsize; k++)
         {
-          // calling func here makes gcc put callableFunc in r14
-          // this reduces the overhead in the timing a little.
-          callableFunc(mpn1, mpn2, mpn3, limbs);
-
           asm volatile (
               "CPUID\n\t"
               "RDTSC\n\t"
@@ -500,7 +493,7 @@ class ajs {
               "=r" (cycles_high), "=r" (cycles_low)::
               "%rax", "%rbx", "%rcx", "%rdx");
 
-          callableFunc(mpn1, mpn2, mpn3, limbs);
+          callableFunc(arg1, arg2, arg3, arg4, arg5, arg6);
 
           asm volatile(
               "RDTSCP\n\t"
@@ -528,9 +521,6 @@ class ajs {
       if (verbose)
         printf("total time: %ld\n", total);
 
-      free(mpn1);
-      free(mpn2);
-      free(mpn3);
       runtime.release((void*)callableFunc);
 
       return total;
@@ -563,7 +553,8 @@ class ajs {
     }
 
     // makes a function with assembler then times the generated function with callFunc.
-    static uint64_t timeFunc(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, uint64_t target, const int limbs, const int verbose, uint64_t overhead)
+    static uint64_t timeFunc(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, uint64_t target, const int verbose, uint64_t overhead,
+        uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
       a.reset();
 
@@ -571,24 +562,38 @@ class ajs {
 
       void* funcPtr = a.make();
 
-      uint64_t ret = callFunc(funcPtr, runtime, target, limbs, verbose, overhead);
-
-      return ret;
+      return callFunc(funcPtr, runtime, target, verbose, overhead,
+          arg1, arg2, arg3, arg4, arg5, arg6);
     }
 
-    static list<line> superOptimise(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, const int from, const int to, const int limbs, const int verbose)
+    static list<line> superOptimise(list<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, const int from, const int to, const uint64_t limbs, const int verbose)
     {
       uint64_t bestTime = 0, overhead = 0;
+      uint64_t *mpn1, *mpn2, *mpn3;
+      uint64_t arg1, arg2, arg3, arg4, arg5, arg6;
       int count = 0;
       int level = 0;
       vector< list<line> > lines(to + 1 - from);
       vector< int > remaining(to + 2 - from);
       list<line> bestFunc;
 
-      list<line> emptyFunc(1, (line){X86Util::getInstIdByName("ret"), noOperand, noOperand, noOperand, noOperand, -1, 0, 0, vector<int>()});
-      overhead = timeFunc(emptyFunc, a, runtime, numLabels, bestTime, limbs, verbose, overhead);
+      mpn1 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
+      mpn2 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
+      mpn3 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
 
-      bestTime = timeFunc(func, a, runtime, numLabels, bestTime, limbs, verbose, overhead);
+      arg1 = reinterpret_cast<uint64_t>(mpn1);
+      arg2 = reinterpret_cast<uint64_t>(mpn2);
+      arg3 = reinterpret_cast<uint64_t>(mpn3);
+      arg4 = reinterpret_cast<uint64_t>(limbs);
+      arg5 = reinterpret_cast<uint64_t>(limbs);
+      arg6 = reinterpret_cast<uint64_t>(limbs);
+
+      list<line> emptyFunc(1, (line){X86Util::getInstIdByName("ret"), noOperand, noOperand, noOperand, noOperand, -1, 0, 0, vector<int>()});
+      overhead = timeFunc(emptyFunc, a, runtime, numLabels, bestTime, verbose, overhead,
+          arg1, arg2, arg3, arg4, arg5, arg6);
+
+      bestTime = timeFunc(func, a, runtime, numLabels, bestTime, verbose, overhead,
+          arg1, arg2, arg3, arg4, arg5, arg6);
       bestFunc = func;
       printf("original sequence: %ld\n", bestTime);
 
@@ -651,7 +656,8 @@ class ajs {
             if (verbose)
               cout << endl << "timing sequence:" << endl;
             // time this permutation
-            uint64_t newTime = timeFunc(func, a, runtime, numLabels, bestTime, limbs, verbose, overhead);
+            uint64_t newTime = timeFunc(func, a, runtime, numLabels, bestTime, verbose, overhead,
+                arg1, arg2, arg3, arg4, arg5, arg6);
             if (bestTime == 0 || newTime < bestTime)
             {
               cout << "better sequence found: " << newTime;
@@ -688,10 +694,14 @@ class ajs {
         }
       }
 
+      free(mpn1);
+      free(mpn2);
+      free(mpn3);
+
       return bestFunc;
     }
 
-    static int run(const char* file, int start, int end, const int limbs, const char* outFile, const int verbose)
+    static int run(const char* file, int start, int end, const uint64_t limbs, const char* outFile, const int verbose)
     {
       FileLogger logger(stdout);
       int numLabels = 0;
