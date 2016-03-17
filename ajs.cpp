@@ -103,17 +103,11 @@ class ajs {
 
     static int64_t getVal(string val) {
       val = trim(val);
-      if (count(val.begin() + 1, val.end(), '-') > 0)
-      {
-        vector<string> vals = split(val, '-');
-        return getVal(vals[0]) - getVal(vals[1]);
-      }
-      if (count(val.begin() + 1, val.end(), '+') > 0)
-      {
-        vector<string> vals = split(val, '+');
-        return getVal(vals[0]) + getVal(vals[1]);
-      }
-      if (count(val.begin(), val.end(), 'x') > 0)
+      std::size_t loc = val.find_first_of("+-\0", 1);
+      if (loc != std::string::npos)
+        return getVal(val.substr(0, loc)) + getVal(val.substr(loc));
+      loc = val.find('x');
+      if (loc != std::string::npos)
         return std::strtoll(val.c_str(), NULL, 16);
       return std::strtoll(val.c_str(), NULL, 10);
     }
@@ -605,6 +599,8 @@ class ajs {
       vector< list<line> > lines(to + 1 - from);
       vector< int > remaining(to + 2 - from);
       list<line> bestFunc;
+
+      // set up arguments for use by function
       mpn1 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       mpn2 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       mpn3 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
