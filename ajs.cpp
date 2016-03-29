@@ -21,6 +21,7 @@
 
 #define stringify( x ) static_cast< std::ostringstream & >( \
             ( std::ostringstream() << std::dec << x ) ).str()
+#define MAX_OPS 4
 
 using namespace asmjit;
 using namespace x86;
@@ -44,7 +45,7 @@ using namespace std;
 
 struct line {
   uint32_t instruction;
-  asmjit::Operand ops[4];
+  asmjit::Operand ops[MAX_OPS];
   uint32_t label;
   uint32_t align;
   int originalIndex;
@@ -227,37 +228,12 @@ class ajs {
       return noOperand;
     }
 
-    // returns whether or not b references a, i.e. they are equal regs or memory locations
-    // or the memory location b references a if a is a register
-    static bool references(const Operand& a, const Operand& b)
+    static bool intersects(const vector<X86Reg>& v1, const vector<X86Reg>& v2)
     {
-      if (a.isReg() && b.isReg())
-      {
-        const X86Reg* areg = static_cast<const X86Reg*>(&a);
-        const X86Reg* breg = static_cast<const X86Reg*>(&b);
-        return *areg == *breg;
-      }
-          //&& a.getRegType() == b.getRegType()
-         // && a.getRegIndex() == b.getRegIndex())
-        //return true;
-      if (b.isMem())
-      {
-        const X86Mem* bmem = static_cast<const X86Mem*>(&b);
-        if (a.isMem())
-        {
-          const X86Mem* amem = static_cast<const X86Mem*>(&a);
-          return *amem == *bmem;
-        }
-        else if (a.isReg())
-        {
-          const X86Reg* areg = static_cast<const X86Reg*>(&a);
-          if (areg->getRegIndex() == bmem->getBase())
+      for (vector<X86Reg>::const_iterator ci1 = v1.begin(); ci1 != v1.end(); ++ci1)
+        for (vector<X86Reg>::const_iterator ci2 = v2.begin(); ci2 != v2.end(); ++ci2)
+          if (*ci1 == *ci2)
             return true;
-          if (areg->getRegIndex() == bmem->getIndex())
-            return true;
-        }
-      }
-
       return false;
     }
 
@@ -309,17 +285,81 @@ class ajs {
       if (ainfo.getEFlagsOut() & binfo.getEFlagsOut())
         return true;
 
-      // a likely writes to a.ops[0] so if b reads or writes to a.op[0] there is a dep
-      if (references(a.ops[0], b.ops[0]) || references(a.ops[0], b.ops[1])
-          || references(a.ops[0], b.ops[2]) || references(a.ops[0], b.ops[3]))
+      if (intersects(a.regsIn, b.regsOut))
         return true;
 
-      // b likely writes to b.ops[0] so if a reads or writes to op[0] there is a dep,
-      if (references(b.ops[0], a.ops[0]) || references(b.ops[0], a.ops[1])
-          || references(b.ops[0], a.ops[2]) || references(b.ops[0], a.ops[3]))
+      if (intersects(a.regsOut, b.regsIn))
+        return true;
+
+      if (intersects(a.regsOut, b.regsOut))
         return true;
 
       return false;
+    }
+
+    static void addRegsRead(line& l)
+    {
+      if (l.instruction == kInstIdNone)
+        return;
+      for (int i = 0; i < MAX_OPS; i++)
+      {
+        if (l.ops[i].isReg())
+          l.regsIn.push_back(*static_cast<const X86Reg*>(&l.ops[i]));
+        if (l.ops[i].isMem())
+        {
+          const X86Mem* m = static_cast<const X86Mem*>(&l.ops[i]);
+          if (m->hasIndex())
+          {
+            X86GpReg r;
+            r.setIndex(m->getIndex());
+            r.setType(kX86RegTypeGpq);
+            r.setSize(8); // TODO this better, maybe 32 bit regs are needed
+            l.regsIn.push_back(r);
+          }
+          if (m->hasBase())
+          {
+            X86GpReg r;
+            r.setIndex(m->getBase());
+            r.setType(kX86RegTypeGpq);
+            r.setSize(8); // TODO this better, maybe 32 bit regs are needed
+            l.regsIn.push_back(r);
+          }
+        }
+      }
+    }
+
+    static void addRegsWritten(line& l)
+    {
+      if (l.instruction == kInstIdNone)
+        return;
+      if (l.ops[0].isReg())
+        l.regsOut.push_back(*static_cast<const X86Reg*>(&l.ops[0]));
+    }
+
+
+    static void addDeps(line& l, vector<line>& func)
+    {
+      // try to determine other dependencies
+      for (vector<line>::const_iterator prevLine = func.begin(); prevLine != func.end(); ++prevLine)
+      {
+        if (dependsOn(l, *prevLine))
+        {
+          if (find(l.dependencies.begin(), l.dependencies.end(), prevLine->originalIndex) == l.dependencies.end())
+          {
+            l.dependencies.push_back(prevLine->originalIndex);
+
+            // we can now remove any of prevLine's dependencies from l
+            // TODO does this make things faster?
+            std::vector<int>::iterator position = l.dependencies.begin();
+            for (vector<int>::const_iterator ci2 = prevLine->dependencies.begin(); ci2 != prevLine->dependencies.end(); ++ci2)
+            {
+              position = std::find(position, l.dependencies.end(), *ci2);
+              if (position != l.dependencies.end())
+                position = l.dependencies.erase(position);
+            }
+          }
+        }
+      }
     }
 
     static int loadFuncFromFile(vector<line>& func, X86Assembler& a, const char* file)
@@ -391,7 +431,7 @@ class ajs {
           }
           else // normal instruction
           {
-            Operand ops[4];
+            Operand ops[MAX_OPS];
             uint32_t id = X86Util::getInstIdByName(parsed[0].c_str());
             uint32_t size = 0;
             if (id == kInstIdNone)
@@ -441,17 +481,12 @@ class ajs {
               for (i = 0; i < args.size(); i++)
                 ops[i] = getOpFromStr(args[i], a, labels, size);
             }
-            for (; i < 4; i++)
+            for (; i < MAX_OPS; i++)
               ops[i] = noOperand;
 
             newLine = (line){id, ops[0], ops[1], ops[2], ops[3], -1, 0, index++, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
-              newLine.regsIn.push_back(rax);
-              newLine.regsIn.push_back(rax);
-              newLine.regsIn.push_back(rax);
-              newLine.regsIn.push_back(rax);
-              newLine.regsIn.push_back(rax);
-              newLine.regsIn.push_back(rax);
-              newLine.regsIn.push_back(rax);
+            addRegsRead(newLine);
+            addRegsWritten(newLine);
           }
 
           // check for dependencies annotated in the source
@@ -468,27 +503,7 @@ class ajs {
             }
           }
 
-          // try to determine other dependencies
-          for (vector<line>::const_iterator prevLine = func.begin(); prevLine != func.end(); ++prevLine)
-          {
-            if (dependsOn(newLine, *prevLine))
-            {
-              if (find(newLine.dependencies.begin(), newLine.dependencies.end(), prevLine->originalIndex) == newLine.dependencies.end())
-              {
-                newLine.dependencies.push_back(prevLine->originalIndex);
-
-                // we can now remove any of prevLine's dependencies from newLine
-                // TODO does this make things faster?
-                std::vector<int>::iterator position = newLine.dependencies.begin();
-                for (vector<int>::const_iterator ci2 = prevLine->dependencies.begin(); ci2 != prevLine->dependencies.end(); ++ci2)
-                {
-                  position = std::find(position, newLine.dependencies.end(), *ci2);
-                  if (position != newLine.dependencies.end())
-                    position = newLine.dependencies.erase(position);
-                }
-              }
-            }
-          }
+          addDeps(newLine, func);
 
           func.insert(func.end(), newLine);
         }
@@ -502,7 +517,7 @@ class ajs {
     {
       uint32_t cycles_high, cycles_high1, cycles_low, cycles_low1;
       uint64_t start, end, total;
-      const int loopsize = 10;
+      const int loopsize = 50;
       volatile int k = 0;
 
       // In order to run 'funcPtr' it has to be casted to the desired type.
@@ -575,7 +590,7 @@ class ajs {
         }
         if (curLine.instruction == 0)
           continue;
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < MAX_OPS; i++)
         {
           if (curLine.ops[i].isLabel()) {
             curLine.ops[i] = labels[curLine.ops[i].getId()];
