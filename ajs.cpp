@@ -336,26 +336,25 @@ class ajs {
         l.regsOut.push_back(*static_cast<const X86Reg*>(&l.ops[0]));
     }
 
-
-    static void addDeps(line& l, vector<line>& func)
+    static void addDeps(vector<line>::iterator newLine, vector<line>& func)
     {
       // try to determine other dependencies
-      for (vector<line>::const_iterator prevLine = func.begin(); prevLine != func.end(); ++prevLine)
+      for (vector<line>::const_iterator prevLine = func.begin(); prevLine != newLine; ++prevLine)
       {
-        if (dependsOn(l, *prevLine))
+        if (dependsOn(*newLine, *prevLine))
         {
-          if (find(l.dependencies.begin(), l.dependencies.end(), prevLine->originalIndex) == l.dependencies.end())
+          if (find(newLine->dependencies.begin(), newLine->dependencies.end(), prevLine->originalIndex) == newLine->dependencies.end())
           {
-            l.dependencies.push_back(prevLine->originalIndex);
+            newLine->dependencies.push_back(prevLine->originalIndex);
 
             // we can now remove any of prevLine's dependencies from l
             // TODO does this make things faster?
-            std::vector<int>::iterator position = l.dependencies.begin();
+            std::vector<int>::iterator position = newLine->dependencies.begin();
             for (vector<int>::const_iterator ci2 = prevLine->dependencies.begin(); ci2 != prevLine->dependencies.end(); ++ci2)
             {
-              position = std::find(position, l.dependencies.end(), *ci2);
-              if (position != l.dependencies.end())
-                position = l.dependencies.erase(position);
+              position = std::find(position, newLine->dependencies.end(), *ci2);
+              if (position != newLine->dependencies.end())
+                position = newLine->dependencies.erase(position);
             }
           }
         }
@@ -503,12 +502,15 @@ class ajs {
             }
           }
 
-          addDeps(newLine, func);
-
           func.insert(func.end(), newLine);
         }
       }
+
       a.reset();
+
+      for (vector<line>::iterator i = func.begin(); i != func.end(); ++i)
+        addDeps(i, func);
+
       return labels.size();
     }
 
