@@ -228,19 +228,22 @@ class ajs {
       return noOperand;
     }
 
-    static bool intersects(const vector<X86Reg>& v1, const vector<X86Reg>& v2)
+    static vector<X86Reg> intersection(const vector<X86Reg>& v1, const vector<X86Reg>& v2)
     {
+      vector<X86Reg> in;
       for (vector<X86Reg>::const_iterator ci1 = v1.begin(); ci1 != v1.end(); ++ci1)
         for (vector<X86Reg>::const_iterator ci2 = v2.begin(); ci2 != v2.end(); ++ci2)
           if (*ci1 == *ci2)
-            return true;
-      return false;
+            in.push_back(*ci2);
+      return in;
     }
 
     // returns whether line a depends on line b or not
     // i.e. if a followed b originally whether swapping is permissible in general
-    static bool dependsOn(const line& a, const line& b)
+    static bool dependsOn(vector<line>::const_iterator ai, vector<line>::const_iterator bi,
+        vector<line>& func)
     {
+      line a = *ai, b = *bi;
       // labels and align statements should have all possible dependencies
       if (a.label != -1)
         return true;
@@ -261,18 +264,6 @@ class ajs {
       if (binfo.getExtendedInfo().isFlow())
         return true;
 
-      if (ainfo.getExtendedInfo().isTest())
-      {
-        // if a is a test instruction there is a dependency on other test instructions
-        if (binfo.getExtendedInfo().isTest())
-          return true;
-
-        // if a is a test instruction there is a dependency on arithmetic instructions
-        if (binfo.getEncodingId() == kX86InstEncodingIdX86Arith)
-          return true;
-        // TODO only the last such instruction preceding a jmp etc should have such a dep
-      }
-
       // if a reads flags set by b there is a dependency
       if (ainfo.getEFlagsIn() & binfo.getEFlagsOut())
         return true;
@@ -285,14 +276,34 @@ class ajs {
       if (ainfo.getEFlagsOut() & binfo.getEFlagsOut())
         return true;
 
-      if (intersects(a.regsIn, b.regsOut))
-        return true;
+      vector<X86Reg> in;
 
-      if (intersects(a.regsOut, b.regsIn))
+      in = intersection(a.regsIn, b.regsOut);
+      for (vector<X86Reg>::const_iterator ci = in.begin(); ci != in.end(); ++ci)
+      {
         return true;
+      }
 
-      if (intersects(a.regsOut, b.regsOut))
+      in = intersection(a.regsOut, b.regsIn);
+      for (vector<X86Reg>::const_iterator ci = in.begin(); ci != in.end(); ++ci)
+      {
         return true;
+      }
+
+      in = intersection(a.regsOut, b.regsOut);
+      for (vector<X86Reg>::const_iterator ci = in.begin(); ci != in.end(); ++ci)
+      {
+        vector<line>::const_iterator li;
+        for (li = ai + 1; li != func.end(); ++li)
+        {
+          if (std::find(li->regsIn.begin(), li->regsIn.end(), *ci) != li->regsIn.end())
+            return true;
+          if (std::find(li->regsOut.begin(), li->regsOut.end(), *ci) != li->regsOut.end())
+            break;
+        }
+        if (li == func.end())
+          return true;
+      }
 
       return false;
     }
@@ -304,7 +315,17 @@ class ajs {
       for (int i = 0; i < MAX_OPS; i++)
       {
         if (l.ops[i].isReg())
+        {
+          if (i == 0)
+          {
+            const X86InstInfo& info = X86Util::getInstInfo(l.instruction);
+
+            // Mov instruction does not read first op
+            if (info.getExtendedInfo().isMove())
+              continue;
+          }
           l.regsIn.push_back(*static_cast<const X86Reg*>(&l.ops[i]));
+        }
         if (l.ops[i].isMem())
         {
           const X86Mem* m = static_cast<const X86Mem*>(&l.ops[i]);
@@ -341,7 +362,7 @@ class ajs {
       // try to determine other dependencies
       for (vector<line>::const_iterator prevLine = func.begin(); prevLine != newLine; ++prevLine)
       {
-        if (dependsOn(*newLine, *prevLine))
+        if (dependsOn(newLine, prevLine, func))
         {
           if (find(newLine->dependencies.begin(), newLine->dependencies.end(), prevLine->originalIndex) == newLine->dependencies.end())
           {
@@ -842,7 +863,8 @@ class ajs {
 
       printf("optimisation complete, best sequence found for range %d-%d:\n", start + 1, end + 1);
       for (list<int>::const_iterator ci = startIt; ci != endIt; ++ci)
-        printf("%d\n", *ci + 1);
+        printf("%d, ", *ci + 1);
+      printf("\n\n");
 
       // write output using asmjits logger
       if (outFile != NULL)
