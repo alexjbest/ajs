@@ -39,7 +39,6 @@ using namespace std;
  * do registers more programmatically?
  * add help option, usage message etc.
  * add make dependencies for headers
- * remove originalIndex
  */
 
 
@@ -48,7 +47,6 @@ struct line {
   asmjit::Operand ops[MAX_OPS];
   uint32_t label;
   uint32_t align;
-  int originalIndex;
   vector<int> dependencies;
   vector<asmjit::X86Reg> regsIn;
   vector<asmjit::X86Reg> regsOut;
@@ -360,13 +358,14 @@ class ajs {
     static void addDeps(vector<line>::iterator newLine, vector<line>& func)
     {
       // try to determine other dependencies
-      for (vector<line>::const_iterator prevLine = func.begin(); prevLine != newLine; ++prevLine)
+      int index = 0;
+      for (vector<line>::const_iterator prevLine = func.begin(); prevLine != newLine; ++prevLine, index++)
       {
         if (dependsOn(newLine, prevLine, func))
         {
-          if (find(newLine->dependencies.begin(), newLine->dependencies.end(), prevLine->originalIndex) == newLine->dependencies.end())
+          if (find(newLine->dependencies.begin(), newLine->dependencies.end(), index) == newLine->dependencies.end())
           {
-            newLine->dependencies.push_back(prevLine->originalIndex);
+            newLine->dependencies.push_back(index);
 
             // we can now remove any of prevLine's dependencies from l
             // TODO does this make things faster?
@@ -384,7 +383,6 @@ class ajs {
 
     static int loadFuncFromFile(vector<line>& func, X86Assembler& a, const char* file)
     {
-      int index = 0;
       map<string, Label> labels;
 
       ifstream ifs;
@@ -417,19 +415,19 @@ class ajs {
             parsed.erase(parsed.begin());
             continue;
           }
-          line newLine;
           if (parsed[0].at(0) == '#') // first char of first token is '#' so have a comment
           {
             break;
           }
-          else if (*parsed[0].rbegin() == ':') // last character of first token is colon, so we are at a label
+
+          line newLine = (line){0, {}, -1, 0, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
+          if (*parsed[0].rbegin() == ':') // last character of first token is colon, so we are at a label
           {
             string label = parsed[0].substr(0, parsed[0].size() - 1);
             if (labels.count(label) == 0)
               labels[label] = a.newLabel();
 
-            newLine = (line){0, noOperand, noOperand, noOperand, noOperand,
-              labels[label].getId(), 0, index++, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
+            newLine.label = labels[label].getId();
 
             parsed.erase(parsed.begin());
           }
@@ -442,7 +440,7 @@ class ajs {
               while (parsed.size() > 0) // done with this line
                 parsed.erase(parsed.begin());
 
-              newLine = (line){0, noOperand, noOperand, noOperand, noOperand, -1, getVal(args[0]), index++, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
+              newLine.align = getVal(args[0]);
             }
             else // ignore non-align directives
             {
@@ -451,7 +449,6 @@ class ajs {
           }
           else // normal instruction
           {
-            Operand ops[MAX_OPS];
             uint32_t id = X86Util::getInstIdByName(parsed[0].c_str());
             uint32_t size = 0;
             if (id == kInstIdNone)
@@ -478,6 +475,7 @@ class ajs {
             parsed.erase(parsed.begin());
 
             int i = 0;
+            newLine.instruction = id;
             if (parsed.size() > 0)
             {
               std::vector<std::string> args = split(parsed[0], ',');
@@ -499,12 +497,9 @@ class ajs {
               reverse(args.begin(), args.end());
 
               for (i = 0; i < args.size(); i++)
-                ops[i] = getOpFromStr(args[i], a, labels, size);
+                newLine.ops[i] = getOpFromStr(args[i], a, labels, size);
             }
-            for (; i < MAX_OPS; i++)
-              ops[i] = noOperand;
 
-            newLine = (line){id, ops[0], ops[1], ops[2], ops[3], -1, 0, index++, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
             addRegsRead(newLine);
             addRegsWritten(newLine);
           }
@@ -518,7 +513,7 @@ class ajs {
             for (vector<string>::const_iterator ci = deps.begin(); ci != deps.end(); ++ci)
             {
               int newDep = atoi(ci->c_str()) - 1;
-              assert(newDep < index); // make sure the user gave us a valid sequence
+              //assert(newDep < index); // make sure the user gave us a valid sequence
               newLine.dependencies.push_back(newDep);
             }
           }
@@ -699,7 +694,7 @@ class ajs {
 
       getArgs(mpn1, mpn2, mpn3, mpn4, limbs, signature, arg1, arg2, arg3, arg4, arg5, arg6);
 
-      line ret = (line){X86Util::getInstIdByName("ret"), noOperand, noOperand, noOperand, noOperand, -1, 0, 0, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
+      line ret = (line){X86Util::getInstIdByName("ret"), {}, -1, 0, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
       vector<line> emptyFunc(1, ret);
       list<int> emptyPerm(1, 0);
       overhead = timeFunc(emptyFunc, emptyPerm, a, runtime, numLabels, bestTime, verbose, overhead,
