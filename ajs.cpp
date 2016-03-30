@@ -21,7 +21,7 @@
 
 #define stringify( x ) static_cast< std::ostringstream & >( \
             ( std::ostringstream() << std::dec << x ) ).str()
-#define MAX_OPS 4
+#define MAX_OPS 3
 
 using namespace asmjit;
 using namespace x86;
@@ -39,6 +39,10 @@ using namespace std;
  * do registers more programmatically?
  * add help option, usage message etc.
  * add make dependencies for headers
+ * move nop stuff into superopt, factor out tryPermutations
+ * make the dependency update stuff work better when adding nops
+ * improve output, sequences no longer right way
+ * add transforming swaps
  */
 
 
@@ -367,7 +371,7 @@ class ajs {
           {
             newLine->dependencies.push_back(index);
 
-            // we can now remove any of prevLine's dependencies from l
+            // we can now remove any of prevLine's dependencies from newLine
             // TODO does this make things faster?
             std::vector<int>::iterator position = newLine->dependencies.begin();
             for (vector<int>::const_iterator ci2 = prevLine->dependencies.begin(); ci2 != prevLine->dependencies.end(); ++ci2)
@@ -420,7 +424,7 @@ class ajs {
             break;
           }
 
-          line newLine = (line){0, {}, -1, 0, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
+          line newLine = (line){0, {noOperand, noOperand, noOperand}, -1, 0, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
           if (*parsed[0].rbegin() == ':') // last character of first token is colon, so we are at a label
           {
             string label = parsed[0].substr(0, parsed[0].size() - 1);
@@ -672,7 +676,7 @@ class ajs {
       }
     }
 
-    static list<int> superOptimise(vector<line>& func, X86Assembler& a, JitRuntime& runtime, int numLabels, const int from, const int to, const uint64_t limbs, const int verbose, string signature)
+    static uint64_t superOptimise(list<int>& bestPerm, vector<line>& func, X86Assembler& a, JitRuntime& runtime, const int numLabels, const int from, const int to, const uint64_t limbs, const int verbose, string signature)
     {
       uint64_t bestTime = 0, overhead = 0;
       uint64_t *mpn1, *mpn2, *mpn3, *mpn4;
@@ -694,7 +698,7 @@ class ajs {
 
       getArgs(mpn1, mpn2, mpn3, mpn4, limbs, signature, arg1, arg2, arg3, arg4, arg5, arg6);
 
-      line ret = (line){X86Util::getInstIdByName("ret"), {}, -1, 0, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
+      line ret = (line){X86Util::getInstIdByName("ret"), {noOperand, noOperand, noOperand}, -1, 0, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
       vector<line> emptyFunc(1, ret);
       list<int> emptyPerm(1, 0);
       overhead = timeFunc(emptyFunc, emptyPerm, a, runtime, numLabels, bestTime, verbose, overhead,
@@ -702,7 +706,7 @@ class ajs {
 
       bestTime = timeFunc(func, perm, a, runtime, numLabels, bestTime, verbose, overhead,
           arg1, arg2, arg3, arg4, arg5, arg6);
-      list<int> bestPerm = perm;
+      bestPerm = perm;
       printf("original sequence: %ld\n", bestTime);
 
       list<int>::iterator start = perm.begin();
@@ -813,10 +817,10 @@ class ajs {
       free(mpn3);
       free(mpn4);
 
-      return bestPerm;
+      return bestTime;
     }
 
-    static int run(const char* file, int start, int end, const uint64_t limbs, const char* outFile, const int verbose, const string signature)
+    static int run(const char* file, int start, int end, const uint64_t limbs, const char* outFile, const int verbose, const string signature, const int nopLine)
     {
       FileLogger logger(stdout);
       int numLabels = 0;
@@ -849,14 +853,39 @@ class ajs {
         end = func.size() - 1;
       assert(end <= func.size() - 1);
       assert(start <= end);
-      bestPerm = superOptimise(func, a, runtime, numLabels, start, end, limbs, verbose, signature);
+      uint64_t bestTime = superOptimise(bestPerm, func, a, runtime, numLabels, start, end, limbs, verbose, signature);
+
+      list<int> bestNopPerm;
+      if (nopLine != -1)
+      {
+        for (int i = 0; i < 3; i++)
+        {
+          printf("trying %d nop(s)\n", i + 1);
+          vector<line>::iterator pos = func.begin();
+          pos += nopLine;
+          func.insert(pos, (line){X86Util::getInstIdByName("nop"), {noOperand, noOperand, noOperand}, -1, 0, vector<int>(), vector<X86Reg>(), vector<X86Reg>()});
+
+          for (; pos != func.end(); ++pos)
+          {
+            pos->dependencies.clear();
+            addDeps(pos, func);
+          }
+
+          uint64_t bestNopTime = superOptimise(bestNopPerm, func, a, runtime, numLabels, start, end, limbs, verbose, signature);
+          if (bestNopTime < bestTime)
+          {
+            bestTime = bestNopTime;
+            bestPerm = bestNopPerm;
+          }
+        }
+      }
 
       list<int>::iterator startIt = bestPerm.begin();
       advance(startIt, start);
       list<int>::iterator endIt = bestPerm.begin();
       advance(endIt, end + 1);
 
-      printf("optimisation complete, best sequence found for range %d-%d:\n", start + 1, end + 1);
+      printf("optimisation complete, best time of %lu for sequence %d-%d:\n", bestTime, start + 1, end + 1);
       for (list<int>::const_iterator ci = startIt; ci != endIt; ++ci)
         printf("%d, ", *ci + 1);
       printf("\n\n");
@@ -878,7 +907,7 @@ class ajs {
 
 int main(int argc, char* argv[])
 {
-  int c, start = 0, end = 0, limbs = 111, verbose = 0;
+  int c, start = 0, end = 0, limbs = 111, verbose = 0, nopLine = -1;
   char *outFile = NULL;
   char *inFile = NULL;
   string signature = "add_n";
@@ -889,6 +918,7 @@ int main(int argc, char* argv[])
     int option_index = 0;
     static struct option long_options[] = {
       {"limbs",     required_argument, 0,  0 },
+      {"nop",       required_argument, 0,  0 },
       {"out",       required_argument, 0,  0 },
       {"range",     required_argument, 0,  0 },
       {"signature", required_argument, 0,  0 },
@@ -896,7 +926,7 @@ int main(int argc, char* argv[])
       {0,           0,                 0,  0 }
     };
 
-    c = getopt_long(argc, argv, "l:o:r:s:v",
+    c = getopt_long(argc, argv, "l:n:o:r:s:v",
         long_options, &option_index);
     if (c == -1)
       break;
@@ -905,6 +935,11 @@ int main(int argc, char* argv[])
       case 'l':
         limbs = std::strtol(optarg, NULL, 10);
         printf("using %s limbs\n", optarg);
+        break;
+
+      case 'n':
+        nopLine = std::strtol(optarg, NULL, 10) - 1;
+        printf("trying nop at line %s\n", optarg);
         break;
 
       case 'o':
@@ -917,7 +952,7 @@ int main(int argc, char* argv[])
           vector<string> range = ajs::split(optarg, '-');
           start = std::strtol(range[0].c_str(), NULL, 10);
           end = std::strtol(range[1].c_str(), NULL, 10);
-          printf("using range %d to %d\n", start, end);
+          printf("optimising range %d to %d\n", start, end);
         }
         break;
 
@@ -935,5 +970,5 @@ int main(int argc, char* argv[])
   if (argc >= 2)
     inFile = argv[optind];
 
-  return ajs::run(inFile, start, end, limbs, outFile, verbose, signature);
+  return ajs::run(inFile, start, end, limbs, outFile, verbose, signature, nopLine);
 }
