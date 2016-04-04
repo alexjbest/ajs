@@ -41,6 +41,7 @@ using namespace std;
  * add make dependencies for headers
  * make the dependency update stuff work better when adding nops, i.e. update indices
  * add transforming swaps
+ * make byte emitting print to output better
  */
 
 
@@ -49,6 +50,7 @@ struct line {
   asmjit::Operand ops[MAX_OPS];
   uint32_t label;
   uint32_t align;
+  uint8_t byte;
   vector<int> dependencies;
   vector<asmjit::X86Reg> regsIn;
   vector<asmjit::X86Reg> regsOut;
@@ -243,7 +245,7 @@ class ajs {
         vector<line>& func)
     {
       line a = *ai, b = *bi;
-      // labels and align statements should have all possible dependencies
+      // labels, align and byte statements should have all possible dependencies
       if (a.label != -1)
         return true;
       if (b.label != -1)
@@ -253,6 +255,12 @@ class ajs {
         return true;
       if (b.align != 0)
         return true;
+
+      if (a.byte != (uint8_t)-1)
+        return true;
+      if (b.byte != (uint8_t)-1)
+        return true;
+
 
       const X86InstInfo& ainfo = X86Util::getInstInfo(a.instruction),
             &binfo = X86Util::getInstInfo(b.instruction);
@@ -421,7 +429,7 @@ class ajs {
             break;
           }
 
-          line newLine = (line){0, {noOperand, noOperand, noOperand}, -1, 0, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
+          line newLine = (line){0, {noOperand, noOperand, noOperand}, -1, 0, -1, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
           if (*parsed[0].rbegin() == ':') // last character of first token is colon, so we are at a label
           {
             string label = parsed[0].substr(0, parsed[0].size() - 1);
@@ -442,6 +450,15 @@ class ajs {
                 parsed.erase(parsed.begin());
 
               newLine.align = getVal(args[0]);
+            }
+            else if (parsed[0] == ".byte") {
+              parsed.erase(parsed.begin());
+
+              std::vector<std::string> args = split(parsed[0], ',');
+              while (parsed.size() > 0) // done with this line
+                parsed.erase(parsed.begin());
+
+              newLine.byte = getVal(args[0]);
             }
             else // ignore non-align directives
             {
@@ -593,7 +610,7 @@ class ajs {
       return total;
     }
 
-    static void addFunc(vector<line>& func, list<int>& perm, X86Assembler& a, int numLabels)
+    static void addFunc(vector<line>& func, list<int>& perm, X86Assembler& a, int numLabels, int verbose)
     {
       Label labels[numLabels];
       for (int i = 0; i < numLabels; i++)
@@ -606,6 +623,17 @@ class ajs {
         }
         if (curLine.label != -1) {
           a.bind(labels[curLine.label]);
+        }
+        if (curLine.byte != (uint8_t)(-1)) {
+          uint8_t* cursor = a.getCursor();
+          if ((size_t)(a._end - cursor) < 16)
+          {
+            a._grow(16);
+          }
+          cursor[0] = curLine.byte;
+          cursor += 1;
+          if (verbose)
+            printf("\t.byte\t%d\n", curLine.byte);
         }
         if (curLine.instruction == 0)
           continue;
@@ -625,7 +653,7 @@ class ajs {
     {
       a.reset();
 
-      addFunc(func, perm, a, numLabels);
+      addFunc(func, perm, a, numLabels, verbose);
 
       void* funcPtr = a.make();
 
@@ -815,7 +843,7 @@ class ajs {
 
       getArgs(mpn1, mpn2, mpn3, mpn4, limbs, signature, arg1, arg2, arg3, arg4, arg5, arg6);
 
-      line ret = (line){X86Util::getInstIdByName("ret"), {noOperand, noOperand, noOperand}, -1, 0, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
+      line ret = (line){X86Util::getInstIdByName("ret"), {noOperand, noOperand, noOperand}, -1, 0, -1, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
       vector<line> emptyFunc(1, ret);
       list<int> emptyPerm(1, 0);
       overhead = timeFunc(emptyFunc, emptyPerm, a, runtime, numLabels, bestTime, verbose, overhead,
@@ -831,7 +859,7 @@ class ajs {
           printf("# trying %d nop(s)\n", i + 1);
           vector<line>::iterator pos = func.begin();
           pos += nopLine;
-          pos = func.insert(pos, (line){X86Util::getInstIdByName("nop"), {noOperand, noOperand, noOperand}, -1, 0, vector<int>(), vector<X86Reg>(), vector<X86Reg>()});
+          pos = func.insert(pos, (line){X86Util::getInstIdByName("nop"), {noOperand, noOperand, noOperand}, -1, 0, -1, vector<int>(), vector<X86Reg>(), vector<X86Reg>()});
 
           for (; pos != func.end(); ++pos)
           {
@@ -900,7 +928,7 @@ class ajs {
       printf("# optimisation complete, best time of %lu for sequence:\n", bestTime);
       a.reset();
       a.setLogger(&logger);
-      addFunc(func, bestPerm, a, numLabels);
+      addFunc(func, bestPerm, a, numLabels, 1);
       printf("\n\n");
 
       // write output using asmjits logger
@@ -910,7 +938,7 @@ class ajs {
         a.setLogger(&logger);
         FILE* of = fopen(outFile, "w");
         logger.setStream(of);
-        addFunc(func, bestPerm, a, numLabels);
+        addFunc(func, bestPerm, a, numLabels, 1);
         fclose(of);
       }
 
