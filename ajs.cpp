@@ -39,9 +39,7 @@ using namespace std;
  * do registers more programmatically?
  * add help option, usage message etc.
  * add make dependencies for headers
- * move nop stuff into superopt, factor out tryPermutations
- * make the dependency update stuff work better when adding nops
- * improve output, sequences no longer right way
+ * make the dependency update stuff work better when adding nops, i.e. update indices
  * add transforming swaps
  */
 
@@ -160,7 +158,6 @@ class ajs {
       regreg(r13);  regreg(r13d);  regreg(r13w);              regreg(r13b);
       regreg(r14);  regreg(r14d);  regreg(r14w);              regreg(r14b);
       regreg(r15);  regreg(r15d);  regreg(r15w);              regreg(r15b);
-      cout << name << endl;
       assert(0);
       return rax;
     }
@@ -397,7 +394,7 @@ class ajs {
 
       if (is.bad())
       {
-        cout << "error: opening file failed, is filename correct?\n" << endl;
+        printf("# error: opening file failed, is filename correct?\n");
         return -1;
       }
 
@@ -580,7 +577,7 @@ class ajs {
           if (target != 0 && k >= loopsize >> 2 && total > (target + 20) * (k+1))
           {
             if (verbose && timing == 1)
-              printf("cannot hit target, aborting\n");
+              printf("# cannot hit target, aborting\n");
             break;
           }
         }
@@ -589,7 +586,7 @@ class ajs {
       total /= k;
 
       if (verbose)
-        printf("total time: %ld\n", total);
+        printf("# total time: %ld\n", total);
 
       runtime.release((void*)callableFunc);
 
@@ -618,7 +615,7 @@ class ajs {
             curLine.ops[i] = labels[curLine.ops[i].getId()];
           }
         }
-        a.emit(curLine.instruction, curLine.ops[0], curLine.ops[1], curLine.ops[2], curLine.ops[3]);
+        a.emit(curLine.instruction, curLine.ops[0], curLine.ops[1], curLine.ops[2]);
       }
     }
 
@@ -657,7 +654,7 @@ class ajs {
         arg4 = reinterpret_cast<uint64_t>(mpn4);
         arg5 = reinterpret_cast<uint64_t>(limbs);
       }
-      else if (signature == "addlsh_n")
+      else if (signature == "addlsh_n") // TODO
       {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = reinterpret_cast<uint64_t>(mpn2);
@@ -665,10 +662,18 @@ class ajs {
         arg4 = reinterpret_cast<uint64_t>(mpn4);
         arg5 = reinterpret_cast<uint64_t>(limbs);
       }
+      else if (signature == "mul_basecase")
+      {
+        arg1 = reinterpret_cast<uint64_t>(mpn4);
+        arg2 = reinterpret_cast<uint64_t>(mpn1);
+        arg3 = reinterpret_cast<uint64_t>(limbs);
+        arg4 = reinterpret_cast<uint64_t>(mpn2);
+        arg5 = reinterpret_cast<uint64_t>(limbs);
+      }
       else
       {
         if (signature != "add_n")
-          printf("signature not recognised, defaulting to add_n\n");
+          printf("# signature not recognised, defaulting to add_n\n");
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = reinterpret_cast<uint64_t>(mpn3);
@@ -676,13 +681,9 @@ class ajs {
       }
     }
 
-    static uint64_t superOptimise(list<int>& bestPerm, vector<line>& func, X86Assembler& a, JitRuntime& runtime, const int numLabels, const int from, const int to, const uint64_t limbs, const int verbose, string signature)
+    static uint64_t tryPerms(list<int>& bestPerm, vector<line>& func, X86Assembler& a, JitRuntime& runtime, const int numLabels, const int from, const int to, const int verbose, const uint64_t overhead, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
-      uint64_t bestTime = 0, overhead = 0;
-      uint64_t *mpn1, *mpn2, *mpn3, *mpn4;
-      uint64_t arg1, arg2, arg3, arg4, arg5, arg6;
-      int count = 0;
-      int level = 0;
+      int count = 0, level = 0;
       vector< list<int> > lines(to + 1 - from);
       vector< int > remaining(to + 2 - from);
       list<int> perm;
@@ -690,24 +691,9 @@ class ajs {
       for (int i = 0; i < func.size(); i++)
         perm.insert(perm.end(), i);
 
-      // set up arguments for use by function
-      mpn1 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
-      mpn2 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
-      mpn3 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
-      mpn4 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
-
-      getArgs(mpn1, mpn2, mpn3, mpn4, limbs, signature, arg1, arg2, arg3, arg4, arg5, arg6);
-
-      line ret = (line){X86Util::getInstIdByName("ret"), {noOperand, noOperand, noOperand}, -1, 0, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
-      vector<line> emptyFunc(1, ret);
-      list<int> emptyPerm(1, 0);
-      overhead = timeFunc(emptyFunc, emptyPerm, a, runtime, numLabels, bestTime, verbose, overhead,
-          arg1, arg2, arg3, arg4, arg5, arg6);
-
-      bestTime = timeFunc(func, perm, a, runtime, numLabels, bestTime, verbose, overhead,
-          arg1, arg2, arg3, arg4, arg5, arg6);
+      uint64_t bestTime = timeFunc(func, perm, a, runtime, numLabels, bestTime, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
       bestPerm = perm;
-      printf("original sequence: %ld\n", bestTime);
+      printf("# original sequence: %ld\n", bestTime);
 
       list<int>::iterator start = perm.begin();
       advance(start, from);
@@ -769,21 +755,22 @@ class ajs {
           {
             count++;
             if (verbose)
-              cout << endl << "timing sequence:" << endl;
+              printf("\n# timing sequence:\n");
             // time this permutation
             uint64_t newTime = timeFunc(func, perm, a, runtime, numLabels, bestTime, verbose, overhead,
                 arg1, arg2, arg3, arg4, arg5, arg6);
             if (bestTime == 0 || newTime < bestTime)
             {
-              cout << "better sequence found: " << newTime;
+              printf("# better sequence found: %ld", newTime);
               if (bestTime != 0)
-                cout << " delta: " << bestTime - newTime;
-              cout << endl;
+                printf(" delta: %ld", bestTime - newTime);
+              printf("\n");
               bestPerm = perm;
               bestTime = newTime;
+              printf("# ");
               for (list<int>::const_iterator ci = perm.begin(); ci != perm.end(); ++ci)
-                cout << *ci + 1 << ", ";
-              cout << endl;
+                printf("%d, ", *ci + 1);
+              printf("\n");
             }
           }
 
@@ -810,7 +797,56 @@ class ajs {
         }
       }
 
-      printf("tried %d sequences\n", count);
+      printf("# tried %d sequences\n", count);
+      return bestTime;
+    }
+
+    static uint64_t superOptimise(list<int>& bestPerm, vector<line>& func, X86Assembler& a, JitRuntime& runtime, const int numLabels, const int from, const int to, const uint64_t limbs, const int verbose, string signature, int nopLine = -1)
+    {
+      uint64_t bestTime = 0, overhead = 0;
+      uint64_t *mpn1, *mpn2, *mpn3, *mpn4;
+      uint64_t arg1, arg2, arg3, arg4, arg5, arg6;
+
+      // set up arguments for use by function
+      mpn1 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
+      mpn2 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
+      mpn3 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
+      mpn4 = (uint64_t*)malloc(2 * limbs * sizeof(uint64_t));
+
+      getArgs(mpn1, mpn2, mpn3, mpn4, limbs, signature, arg1, arg2, arg3, arg4, arg5, arg6);
+
+      line ret = (line){X86Util::getInstIdByName("ret"), {noOperand, noOperand, noOperand}, -1, 0, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
+      vector<line> emptyFunc(1, ret);
+      list<int> emptyPerm(1, 0);
+      overhead = timeFunc(emptyFunc, emptyPerm, a, runtime, numLabels, bestTime, verbose, overhead,
+          arg1, arg2, arg3, arg4, arg5, arg6);
+
+      bestTime = tryPerms(bestPerm, func, a, runtime, numLabels, from, to, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
+
+      list<int> nopPerm;
+      if (nopLine != -1)
+      {
+        for (int i = 0; i < 3; i++)
+        {
+          printf("# trying %d nop(s)\n", i + 1);
+          vector<line>::iterator pos = func.begin();
+          pos += nopLine;
+          pos = func.insert(pos, (line){X86Util::getInstIdByName("nop"), {noOperand, noOperand, noOperand}, -1, 0, vector<int>(), vector<X86Reg>(), vector<X86Reg>()});
+
+          for (; pos != func.end(); ++pos)
+          {
+            pos->dependencies.clear();
+            addDeps(pos, func);
+          }
+
+          uint64_t bestNopTime = tryPerms(nopPerm, func, a, runtime, numLabels, from, to, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
+          if (bestNopTime < bestTime)
+          {
+            bestTime = bestNopTime;
+            bestPerm = nopPerm;
+          }
+        }
+      }
 
       free(mpn1);
       free(mpn2);
@@ -853,41 +889,18 @@ class ajs {
         end = func.size() - 1;
       assert(end <= func.size() - 1);
       assert(start <= end);
-      uint64_t bestTime = superOptimise(bestPerm, func, a, runtime, numLabels, start, end, limbs, verbose, signature);
 
-      list<int> bestNopPerm;
-      if (nopLine != -1)
-      {
-        for (int i = 0; i < 3; i++)
-        {
-          printf("trying %d nop(s)\n", i + 1);
-          vector<line>::iterator pos = func.begin();
-          pos += nopLine;
-          func.insert(pos, (line){X86Util::getInstIdByName("nop"), {noOperand, noOperand, noOperand}, -1, 0, vector<int>(), vector<X86Reg>(), vector<X86Reg>()});
-
-          for (; pos != func.end(); ++pos)
-          {
-            pos->dependencies.clear();
-            addDeps(pos, func);
-          }
-
-          uint64_t bestNopTime = superOptimise(bestNopPerm, func, a, runtime, numLabels, start, end, limbs, verbose, signature);
-          if (bestNopTime < bestTime)
-          {
-            bestTime = bestNopTime;
-            bestPerm = bestNopPerm;
-          }
-        }
-      }
+      uint64_t bestTime = superOptimise(bestPerm, func, a, runtime, numLabels, start, end, limbs, verbose, signature, nopLine);
 
       list<int>::iterator startIt = bestPerm.begin();
       advance(startIt, start);
       list<int>::iterator endIt = bestPerm.begin();
       advance(endIt, end + 1);
 
-      printf("optimisation complete, best time of %lu for sequence %d-%d:\n", bestTime, start + 1, end + 1);
-      for (list<int>::const_iterator ci = startIt; ci != endIt; ++ci)
-        printf("%d, ", *ci + 1);
+      printf("# optimisation complete, best time of %lu for sequence:\n", bestTime);
+      a.reset();
+      a.setLogger(&logger);
+      addFunc(func, bestPerm, a, numLabels);
       printf("\n\n");
 
       // write output using asmjits logger
@@ -934,17 +947,17 @@ int main(int argc, char* argv[])
     switch (c) {
       case 'l':
         limbs = std::strtol(optarg, NULL, 10);
-        printf("using %s limbs\n", optarg);
+        printf("# optimising for %s limbs\n", optarg);
         break;
 
       case 'n':
         nopLine = std::strtol(optarg, NULL, 10) - 1;
-        printf("trying nop at line %s\n", optarg);
+        printf("# inserting nops at line %s\n", optarg);
         break;
 
       case 'o':
         outFile = optarg;
-        printf("writing optimised function to %s\n", optarg);
+        printf("# writing optimised function to %s\n", optarg);
         break;
 
       case 'r':
@@ -952,13 +965,13 @@ int main(int argc, char* argv[])
           vector<string> range = ajs::split(optarg, '-');
           start = std::strtol(range[0].c_str(), NULL, 10);
           end = std::strtol(range[1].c_str(), NULL, 10);
-          printf("optimising range %d to %d\n", start, end);
+          printf("# optimising range %d to %d\n", start, end);
         }
         break;
 
       case 's':
         signature = string(optarg);
-        printf("using function signature %s\n", optarg);
+        printf("# function signature %s\n", optarg);
         break;
 
       case 'v':
@@ -968,7 +981,10 @@ int main(int argc, char* argv[])
   }
 
   if (argc >= 2)
+  {
     inFile = argv[optind];
+    printf("# source file: %s\n", inFile);
+  }
 
   return ajs::run(inFile, start, end, limbs, outFile, verbose, signature, nopLine);
 }
