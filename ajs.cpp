@@ -45,15 +45,123 @@ using namespace std;
  */
 
 
-struct line {
-  uint32_t instruction;
-  asmjit::Operand ops[MAX_OPS];
-  uint32_t label;
-  uint32_t align;
-  uint8_t byte;
-  vector<int> dependencies;
-  vector<asmjit::X86Reg> regsIn;
-  vector<asmjit::X86Reg> regsOut;
+class Line
+{
+  private:
+    uint32_t instruction;
+    asmjit::Operand ops[MAX_OPS];
+    uint32_t label;
+    uint32_t align;
+    uint8_t byte;
+    vector<int> dependencies;
+    vector<asmjit::X86Reg> regsIn;
+    vector<asmjit::X86Reg> regsOut;
+
+  public:
+    Line(uint32_t inst = kInstIdNone):instruction(inst), ops({noOperand, noOperand, noOperand}), label(-1), align(0), byte(-1), dependencies(vector<int>()), regsIn(vector<asmjit::X86Reg>()), regsOut(vector<asmjit::X86Reg>()) {}
+
+    uint32_t getInstruction() const {
+      assert(isInstruction());
+      return instruction;
+    }
+
+    uint32_t getLabel() const {
+      assert(isLabel());
+      return label;
+    }
+
+    uint32_t getByte() const {
+      assert(isByte());
+      return byte;
+    }
+
+    uint32_t getAlign() const {
+      assert(isAlign());
+      return align;
+    }
+
+    asmjit::Operand getOp(int i) const {
+      assert(i < MAX_OPS);
+      return ops[i];
+    }
+
+    const asmjit::Operand* getOpPtr(int i) const {
+      assert(i < MAX_OPS);
+      return &ops[i];
+    }
+
+    vector<int>& getDependencies() {
+      return dependencies;
+    }
+
+    vector<asmjit::X86Reg> getRegsIn() const {
+      return regsIn;
+    }
+
+    vector<asmjit::X86Reg> getRegsOut() const {
+      return regsOut;
+    }
+
+    int isInstruction() const {
+      return instruction != kInstIdNone;
+    }
+
+    int isLabel() const {
+      return label != -1;
+    }
+
+    int isAlign() const {
+      return align != 0;
+    }
+
+    int isByte() const {
+      return byte != (uint8_t)-1;
+    }
+
+    void setInstruction(uint32_t inst) {
+      instruction = inst;
+      label = -1;
+      align = 0;
+      byte = -1;
+    }
+
+    void setLabel(uint32_t lab) {
+      instruction = kInstIdNone;
+      label = lab;
+      align = 0;
+      byte = -1;
+    }
+
+    void setAlign(uint8_t ali) {
+      instruction = kInstIdNone;
+      label = -1;
+      align = ali;
+      byte = -1;
+    }
+
+    void setByte(uint8_t byt) {
+      instruction = kInstIdNone;
+      label = -1;
+      align = 0;
+      byte = byt;
+    }
+
+    void setOp(int i, asmjit::Operand op) {
+      assert(i < MAX_OPS);
+      ops[i] = op;
+    }
+
+    void addRegIn(X86Reg reg) {
+      regsIn.push_back(reg);
+    }
+
+    void addRegOut(X86Reg reg) {
+      regsOut.push_back(reg);
+    }
+
+    void addDependency(int dep) {
+      dependencies.push_back(dep);
+    }
 };
 
 class ajs {
@@ -172,7 +280,7 @@ class ajs {
       return rax;
     }
 
-    // Parses expressions of the form disp(base,offset,scalar) into asmjits X86Mem
+    // Parses expressions of the form disp(base,offset,scalar) into asmjit's X86Mem
     static X86Mem getPtrFromAddress(string addr, uint32_t size)
     {
       size_t i = addr.find("(");
@@ -241,29 +349,29 @@ class ajs {
 
     // returns whether line a depends on line b or not
     // i.e. if a followed b originally whether swapping is permissible in general
-    static bool dependsOn(vector<line>::const_iterator ai, vector<line>::const_iterator bi,
-        vector<line>& func)
+    static bool dependsOn(vector<Line>::const_iterator ai, vector<Line>::const_iterator bi,
+        vector<Line>& func)
     {
-      line a = *ai, b = *bi;
+      Line a = *ai, b = *bi;
       // labels, align and byte statements should have all possible dependencies
-      if (a.label != -1)
+      if (a.isLabel())
         return true;
-      if (b.label != -1)
-        return true;
-
-      if (a.align != 0)
-        return true;
-      if (b.align != 0)
+      if (b.isLabel())
         return true;
 
-      if (a.byte != (uint8_t)-1)
+      if (a.isAlign())
         return true;
-      if (b.byte != (uint8_t)-1)
+      if (b.isAlign())
+        return true;
+
+      if (a.isByte())
+        return true;
+      if (b.isByte())
         return true;
 
 
-      const X86InstInfo& ainfo = X86Util::getInstInfo(a.instruction),
-            &binfo = X86Util::getInstInfo(b.instruction);
+      const X86InstInfo& ainfo = X86Util::getInstInfo(a.getInstruction()),
+            &binfo = X86Util::getInstInfo(b.getInstruction());
 
       // if a or b are control flow instructions there is always a dependency
       if (ainfo.getExtendedInfo().isFlow())
@@ -285,27 +393,27 @@ class ajs {
 
       vector<X86Reg> in;
 
-      in = intersection(a.regsIn, b.regsOut);
+      in = intersection(a.getRegsIn(), b.getRegsOut());
+      for (vector<X86Reg>::const_iterator ci = in.begin(); ci != in.end(); ++ci) // TODO poss change to if len
+      {
+        return true;
+      }
+
+      in = intersection(a.getRegsOut(), b.getRegsIn());
       for (vector<X86Reg>::const_iterator ci = in.begin(); ci != in.end(); ++ci)
       {
         return true;
       }
 
-      in = intersection(a.regsOut, b.regsIn);
+      in = intersection(a.getRegsOut(), b.getRegsOut());
       for (vector<X86Reg>::const_iterator ci = in.begin(); ci != in.end(); ++ci)
       {
-        return true;
-      }
-
-      in = intersection(a.regsOut, b.regsOut);
-      for (vector<X86Reg>::const_iterator ci = in.begin(); ci != in.end(); ++ci)
-      {
-        vector<line>::const_iterator li;
+        vector<Line>::const_iterator li;
         for (li = ai + 1; li != func.end(); ++li)
         {
-          if (std::find(li->regsIn.begin(), li->regsIn.end(), *ci) != li->regsIn.end())
+          if (std::find(li->getRegsIn().begin(), li->getRegsIn().end(), *ci) != li->getRegsIn().end())
             return true;
-          if (std::find(li->regsOut.begin(), li->regsOut.end(), *ci) != li->regsOut.end())
+          if (std::find(li->getRegsOut().begin(), li->getRegsOut().end(), *ci) != li->getRegsOut().end())
             break;
         }
         if (li == func.end())
@@ -315,34 +423,34 @@ class ajs {
       return false;
     }
 
-    static void addRegsRead(line& l)
+    static void addRegsRead(Line& l)
     {
-      if (l.instruction == kInstIdNone)
+      if (!l.isInstruction())
         return;
       for (int i = 0; i < MAX_OPS; i++)
       {
-        if (l.ops[i].isReg())
+        if (l.getOp(i).isReg())
         {
           if (i == 0)
           {
-            const X86InstInfo& info = X86Util::getInstInfo(l.instruction);
+            const X86InstInfo& info = X86Util::getInstInfo(l.getInstruction());
 
             // Mov instruction does not read first op
             if (info.getExtendedInfo().isMove())
               continue;
           }
-          l.regsIn.push_back(*static_cast<const X86Reg*>(&l.ops[i]));
+          l.addRegIn(*static_cast<const X86Reg*>(l.getOpPtr(i)));
         }
-        if (l.ops[i].isMem())
+        if (l.getOp(i).isMem())
         {
-          const X86Mem* m = static_cast<const X86Mem*>(&l.ops[i]);
+          const X86Mem* m = static_cast<const X86Mem*>(l.getOpPtr(i));
           if (m->hasIndex())
           {
             X86GpReg r;
             r.setIndex(m->getIndex());
             r.setType(kX86RegTypeGpq);
             r.setSize(8); // TODO this better, maybe 32 bit regs are needed
-            l.regsIn.push_back(r);
+            l.addRegIn(r);
           }
           if (m->hasBase())
           {
@@ -350,47 +458,47 @@ class ajs {
             r.setIndex(m->getBase());
             r.setType(kX86RegTypeGpq);
             r.setSize(8); // TODO this better, maybe 32 bit regs are needed
-            l.regsIn.push_back(r);
+            l.addRegIn(r);
           }
         }
       }
     }
 
-    static void addRegsWritten(line& l)
+    static void addRegsWritten(Line& l)
     {
-      if (l.instruction == kInstIdNone)
+      if (!l.isInstruction())
         return;
-      if (l.ops[0].isReg())
-        l.regsOut.push_back(*static_cast<const X86Reg*>(&l.ops[0]));
+      if (l.getOp(0).isReg())
+        l.addRegOut(*static_cast<const X86Reg*>(l.getOpPtr(0)));
     }
 
-    static void addDeps(vector<line>::iterator newLine, vector<line>& func)
+    static void addDeps(vector<Line>::iterator newLine, vector<Line>& func)
     {
       // try to determine other dependencies
       int index = 0;
-      for (vector<line>::const_iterator prevLine = func.begin(); prevLine != newLine; ++prevLine, index++)
+      for (vector<Line>::iterator prevLine = func.begin(); prevLine != newLine; ++prevLine, index++)
       {
         if (dependsOn(newLine, prevLine, func))
         {
-          if (find(newLine->dependencies.begin(), newLine->dependencies.end(), index) == newLine->dependencies.end())
+          if (find(newLine->getDependencies().begin(), newLine->getDependencies().end(), index) == newLine->getDependencies().end())
           {
-            newLine->dependencies.push_back(index);
+            newLine->addDependency(index);
 
             // we can now remove any of prevLine's dependencies from newLine
             // TODO does this make things faster?
-            std::vector<int>::iterator position = newLine->dependencies.begin();
-            for (vector<int>::const_iterator ci2 = prevLine->dependencies.begin(); ci2 != prevLine->dependencies.end(); ++ci2)
+            std::vector<int>::iterator position = newLine->getDependencies().begin();
+            for (vector<int>::iterator ci2 = prevLine->getDependencies().begin(); ci2 != prevLine->getDependencies().end(); ++ci2)
             {
-              position = std::find(position, newLine->dependencies.end(), *ci2);
-              if (position != newLine->dependencies.end())
-                position = newLine->dependencies.erase(position);
+              position = std::find(position, newLine->getDependencies().end(), *ci2);
+              if (position != newLine->getDependencies().end())
+                position = newLine->getDependencies().erase(position);
             }
           }
         }
       }
     }
 
-    static int loadFuncFromFile(vector<line>& func, X86Assembler& a, const char* file, const int intelSyntax)
+    static int loadFuncFromFile(vector<Line>& func, X86Assembler& a, const char* file, const int intelSyntax)
     {
       map<string, Label> labels;
 
@@ -430,14 +538,14 @@ class ajs {
             break;
           }
 
-          line newLine = (line){0, {noOperand, noOperand, noOperand}, -1, 0, -1, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
+          Line newLine;
           if (*parsed[0].rbegin() == ':') // last character of first token is colon, so we are at a label
           {
             string label = parsed[0].substr(0, parsed[0].size() - 1);
             if (labels.count(label) == 0)
               labels[label] = a.newLabel();
 
-            newLine.label = labels[label].getId();
+            newLine.setLabel(labels[label].getId());
 
             parsed.erase(parsed.begin());
           }
@@ -450,7 +558,7 @@ class ajs {
               while (parsed.size() > 0) // done with this line
                 parsed.erase(parsed.begin());
 
-              newLine.align = getVal(args[0]);
+              newLine.setAlign(getVal(args[0]));
             }
             else if (parsed[0] == ".byte") {
               parsed.erase(parsed.begin());
@@ -459,7 +567,7 @@ class ajs {
               while (parsed.size() > 0) // done with this line
                 parsed.erase(parsed.begin());
 
-              newLine.byte = getVal(args[0]);
+              newLine.setByte(getVal(args[0]));
             }
             else // ignore non-align directives
             {
@@ -490,11 +598,10 @@ class ajs {
                   break;
               }
             }
-            assert(id != kInstIdNone);
             parsed.erase(parsed.begin());
 
             int i = 0;
-            newLine.instruction = id;
+            newLine.setInstruction(id);
             if (parsed.size() > 0)
             {
               std::vector<std::string> args = split(parsed[0], ',');
@@ -516,7 +623,7 @@ class ajs {
               reverse(args.begin(), args.end());
 
               for (i = 0; i < args.size(); i++)
-                newLine.ops[i] = getOpFromStr(args[i], a, labels, size);
+                newLine.setOp(i, getOpFromStr(args[i], a, labels, size));
             }
 
             addRegsRead(newLine);
@@ -533,7 +640,7 @@ class ajs {
             {
               int newDep = atoi(ci->c_str()) - 1;
               //assert(newDep < index); // make sure the user gave us a valid sequence
-              newLine.dependencies.push_back(newDep);
+              newLine.addDependency(newDep);
             }
           }
 
@@ -543,7 +650,7 @@ class ajs {
 
       a.reset();
 
-      for (vector<line>::iterator i = func.begin(); i != func.end(); ++i)
+      for (vector<Line>::iterator i = func.begin(); i != func.end(); ++i)
         addDeps(i, func);
 
       return labels.size();
@@ -611,45 +718,45 @@ class ajs {
       return total;
     }
 
-    static void addFunc(vector<line>& func, list<int>& perm, X86Assembler& a, int numLabels, int verbose)
+    static void addFunc(vector<Line>& func, list<int>& perm, X86Assembler& a, int numLabels, int verbose)
     {
       Label labels[numLabels];
       for (int i = 0; i < numLabels; i++)
         labels[i] = a.newLabel();
       for (list<int>::const_iterator ci = perm.begin(); ci != perm.end(); ++ci)
       {
-        line& curLine = func[*ci];
-        if (curLine.align != 0) {
-          a.align(kAlignCode, curLine.align);
+        Line& curLine = func[*ci];
+        if (curLine.isAlign()) {
+          a.align(kAlignCode, curLine.getAlign());
         }
-        if (curLine.label != -1) {
-          a.bind(labels[curLine.label]);
+        if (curLine.isLabel()) {
+          a.bind(labels[curLine.getLabel()]);
         }
-        if (curLine.byte != (uint8_t)(-1)) {
+        if (curLine.isByte()) {
           uint8_t* cursor = a.getCursor();
           if ((size_t)(a._end - cursor) < 16)
           {
             a._grow(16);
           }
-          cursor[0] = curLine.byte;
+          cursor[0] = curLine.getByte();
           cursor += 1;
           if (verbose)
-            a.getLogger()->logFormat(kLoggerStyleDefault,"\t.byte\t%d\n", curLine.byte);
+            a.getLogger()->logFormat(kLoggerStyleDefault,"\t.byte\t%d\n", curLine.getByte());
         }
-        if (curLine.instruction == 0)
+        if (!curLine.isInstruction())
           continue;
         for (int i = 0; i < MAX_OPS; i++)
         {
-          if (curLine.ops[i].isLabel()) {
-            curLine.ops[i] = labels[curLine.ops[i].getId()];
+          if (curLine.getOp(i).isLabel()) {
+            curLine.setOp(i, labels[curLine.getOp(i).getId()]);
           }
         }
-        a.emit(curLine.instruction, curLine.ops[0], curLine.ops[1], curLine.ops[2]);
+        a.emit(curLine.getInstruction(), curLine.getOp(0), curLine.getOp(1), curLine.getOp(2));
       }
     }
 
     // makes a function with assembler then times the generated function with callFunc.
-    static uint64_t timeFunc(vector<line>& func, list<int>& perm, X86Assembler& a, JitRuntime& runtime, int numLabels, uint64_t target, const int verbose, uint64_t overhead,
+    static uint64_t timeFunc(vector<Line>& func, list<int>& perm, X86Assembler& a, JitRuntime& runtime, int numLabels, uint64_t target, const int verbose, uint64_t overhead,
         uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
       a.reset();
@@ -710,7 +817,7 @@ class ajs {
       }
     }
 
-    static uint64_t tryPerms(list<int>& bestPerm, vector<line>& func, X86Assembler& a, JitRuntime& runtime, const int numLabels, const int from, const int to, const int verbose, const uint64_t overhead, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
+    static uint64_t tryPerms(list<int>& bestPerm, vector<Line>& func, X86Assembler& a, JitRuntime& runtime, const int numLabels, const int from, const int to, const int verbose, const uint64_t overhead, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
       int count = 0, level = 0;
       vector< list<int> > lines(to + 1 - from);
@@ -731,9 +838,9 @@ class ajs {
 
       for (list<int>::iterator i = start; i != end;)
       {
-        line& curLine = func[*i];
+        Line& curLine = func[*i];
         int depCount = 0;
-        for (vector<int>::const_iterator ci = curLine.dependencies.begin(); ci != curLine.dependencies.end(); ++ci)
+        for (vector<int>::const_iterator ci = curLine.getDependencies().begin(); ci != curLine.getDependencies().end(); ++ci)
         {
           if (*ci >= from && *ci <= to)
             depCount++;
@@ -763,8 +870,8 @@ class ajs {
           {
             for (list<int>::iterator ci = lines[i].begin(); ci != lines[i].end(); ++ci)
             {
-              line& freeLine = func[*ci];
-              if (find(freeLine.dependencies.begin(), freeLine.dependencies.end(), *cur) != freeLine.dependencies.end())
+              Line& freeLine = func[*ci];
+              if (find(freeLine.getDependencies().begin(), freeLine.getDependencies().end(), *cur) != freeLine.getDependencies().end())
               {
                 lines[i - 1].push_back(*ci);
                 ci = lines[i].erase(ci);
@@ -808,8 +915,8 @@ class ajs {
           {
             for (list<int>::iterator ci = lines[i].begin(); ci != lines[i].end(); ++ci)
             {
-              line& freeLine = func[*ci];
-              if (find(freeLine.dependencies.begin(), freeLine.dependencies.end(), *cur) != freeLine.dependencies.end())
+              Line& freeLine = func[*ci];
+              if (find(freeLine.getDependencies().begin(), freeLine.getDependencies().end(), *cur) != freeLine.getDependencies().end())
               {
                 lines[i + 1].push_back(*ci);
                 ci = lines[i].erase(ci);
@@ -830,7 +937,7 @@ class ajs {
       return bestTime;
     }
 
-    static uint64_t superOptimise(list<int>& bestPerm, vector<line>& func, X86Assembler& a, JitRuntime& runtime, const int numLabels, const int from, const int to, const uint64_t limbs, const int verbose, string signature, int nopLine = -1)
+    static uint64_t superOptimise(list<int>& bestPerm, vector<Line>& func, X86Assembler& a, JitRuntime& runtime, const int numLabels, const int from, const int to, const uint64_t limbs, const int verbose, string signature, int nopLine = -1)
     {
       uint64_t bestTime = 0, overhead = 0;
       uint64_t *mpn1, *mpn2, *mpn3, *mpn4;
@@ -844,8 +951,8 @@ class ajs {
 
       getArgs(mpn1, mpn2, mpn3, mpn4, limbs, signature, arg1, arg2, arg3, arg4, arg5, arg6);
 
-      line ret = (line){X86Util::getInstIdByName("ret"), {noOperand, noOperand, noOperand}, -1, 0, -1, vector<int>(), vector<X86Reg>(), vector<X86Reg>()};
-      vector<line> emptyFunc(1, ret);
+      Line ret(X86Util::getInstIdByName("ret"));
+      vector<Line> emptyFunc(1, ret);
       list<int> emptyPerm(1, 0);
       overhead = timeFunc(emptyFunc, emptyPerm, a, runtime, numLabels, bestTime, verbose, overhead,
           arg1, arg2, arg3, arg4, arg5, arg6);
@@ -858,13 +965,13 @@ class ajs {
         for (int i = 0; i < 3; i++)
         {
           printf("# trying %d nop(s)\n", i + 1);
-          vector<line>::iterator pos = func.begin();
+          vector<Line>::iterator pos = func.begin();
           pos += nopLine;
-          pos = func.insert(pos, (line){X86Util::getInstIdByName("nop"), {noOperand, noOperand, noOperand}, -1, 0, -1, vector<int>(), vector<X86Reg>(), vector<X86Reg>()});
+          pos = func.insert(pos, Line(X86Util::getInstIdByName("nop")));
 
           for (; pos != func.end(); ++pos)
           {
-            pos->dependencies.clear();
+            pos->getDependencies().clear();
             addDeps(pos, func);
           }
 
@@ -899,7 +1006,7 @@ class ajs {
         a.setLogger(&logger);
 
       // Create the functions we will work with
-      vector<line> func;
+      vector<Line> func;
       list<int> bestPerm;
       // load original from the file given in arguments
       numLabels = loadFuncFromFile(func, a, file, intelSyntax);
@@ -932,7 +1039,7 @@ class ajs {
       addFunc(func, bestPerm, a, numLabels, 1);
       printf("\n\n");
 
-      // write output using asmjits logger
+      // write output using asmjit's logger
       if (outFile != NULL)
       {
         a.reset();
