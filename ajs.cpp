@@ -390,10 +390,11 @@ class ajs {
       }
     }
 
-    static int loadFuncFromFile(vector<line>& func, X86Assembler& a, const char* file)
+    static int loadFuncFromFile(vector<line>& func, X86Assembler& a, const char* file, const int intelSyntax)
     {
       map<string, Label> labels;
 
+      // if we are given a file path use it, otherwise try stdin.
       ifstream ifs;
       if (file != NULL)
         ifs.open(file);
@@ -884,7 +885,7 @@ class ajs {
       return bestTime;
     }
 
-    static int run(const char* file, int start, int end, const uint64_t limbs, const char* outFile, const int verbose, const string signature, const int nopLine)
+    static int run(const char* file, int start, int end, const uint64_t limbs, const char* outFile, const int verbose, const int intelSyntax, const string signature, const int nopLine)
     {
       FileLogger logger(stdout);
       int numLabels = 0;
@@ -901,7 +902,7 @@ class ajs {
       vector<line> func;
       list<int> bestPerm;
       // load original from the file given in arguments
-      numLabels = loadFuncFromFile(func, a, file);
+      numLabels = loadFuncFromFile(func, a, file, intelSyntax);
 
       // returned if something went wrong when loading
       if (numLabels == -1)
@@ -948,7 +949,7 @@ class ajs {
 
 int main(int argc, char* argv[])
 {
-  int c, start = 0, end = 0, limbs = 111, verbose = 0, nopLine = -1;
+  int c, start = 0, end = 0, limbs = 111, verbose = 0, nopLine = -1, intelSyntax = 0;
   char *outFile = NULL;
   char *inFile = NULL;
   string signature = "add_n";
@@ -964,10 +965,11 @@ int main(int argc, char* argv[])
       {"range",     required_argument, 0,  0 },
       {"signature", required_argument, 0,  0 },
       {"verbose",   no_argument,       0,  0 },
+      {"intel",     no_argument,       0,  0 },
       {0,           0,                 0,  0 }
     };
 
-    c = getopt_long(argc, argv, "l:n:o:r:s:v",
+    c = getopt_long(argc, argv, "il:n:o:r:s:v",
         long_options, &option_index);
     if (c == -1)
       break;
@@ -1002,6 +1004,11 @@ int main(int argc, char* argv[])
         printf("# function signature %s\n", optarg);
         break;
 
+      case 'i':
+        intelSyntax = 1;
+        printf("# assuming intel syntax\n");
+        break;
+
       case 'v':
         verbose = 1;
         break;
@@ -1014,5 +1021,5 @@ int main(int argc, char* argv[])
     printf("# source file: %s\n", inFile);
   }
 
-  return ajs::run(inFile, start, end, limbs, outFile, verbose, signature, nopLine);
+  return ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax, signature, nopLine);
 }
