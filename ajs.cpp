@@ -633,7 +633,7 @@ class ajs {
           cursor[0] = curLine.byte;
           cursor += 1;
           if (verbose)
-            printf("\t.byte\t%d\n", curLine.byte);
+            a.getLogger()->logFormat(kLoggerStyleDefault,"\t.byte\t%d\n", curLine.byte);
         }
         if (curLine.instruction == 0)
           continue;
