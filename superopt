@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -e
+
+FILE=$1
+filename=$(basename "$FILE")
+extension="${filename##*.}"
+filename="${filename%.*}"
+echo "optimising $FILE"
+if [[ $FILE == *.asm ]]
+then
+	m4 -I../mpir/mpn/ $FILE | ./ajs -o "$filename"_optimised."$extension"
+elif [[ $FILE == *.as ]]
+then
+	../mpir/yasm/yasm -e -I../mpir/ $FILE | ./ajs -i -o "$filename"_optimised."$extension"
+fi
