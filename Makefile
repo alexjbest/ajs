@@ -1,11 +1,11 @@
-OUT = libasmjit.a
+LIBASMJIT = libasmjit.a
 CC = g++
 ODIR = obj
 SDIR = src
-INC = -Iasmjit
-CFLAGS = -g -Wno-attributes -O2
+INC = -Iasmjit -I.
+CFLAGS = -g -Wno-attributes -O2 --std=c++11
 
-OBJS = asmjit/base/assembler.o asmjit/base/compiler.o \
+ASMJITOBJS = asmjit/base/assembler.o asmjit/base/compiler.o \
        asmjit/base/compilercontext.o asmjit/base/constpool.o \
        asmjit/base/containers.o asmjit/base/cpuinfo.o asmjit/base/globals.o \
        asmjit/base/hlstream.o asmjit/base/logger.o asmjit/base/operand.o \
@@ -15,16 +15,18 @@ OBJS = asmjit/base/assembler.o asmjit/base/compiler.o \
        asmjit/x86/x86cpuinfo.o asmjit/x86/x86inst.o asmjit/x86/x86operand.o \
        asmjit/x86/x86operand_regs.o asmjit/x86/x86scheduler.o
 
-all: $(OUT) ajs.cpp
-	$(CC) -o ajs ajs.cpp -L. -lasmjit -I. -Iasmjit $(CFLAGS)
+AJSOBJS = line.o
 
-%.o: %.cpp 
+all: $(LIBASMJIT) ajs.cpp
+	$(CC) -o ajs ajs.cpp $(AJSOBJS) -L. -lasmjit $(INC) $(CFLAGS)
+
+%.o: %.cpp
 	$(CC) -c $(INC) -o $@ $< $(CFLAGS)
 
-$(OUT): $(OBJS) 
-	ar rvs $(OUT) $^
+$(LIBASMJIT): $(ASMJITOBJS)
+	ar rvs $(LIBASMJIT) $^
 
 .PHONY: clean
 
 clean:
-	rm -f $(OBJS) $(OUT) ajs
+	rm -f $(ASMJITOBJS) $(LIBASMJIT) ajs

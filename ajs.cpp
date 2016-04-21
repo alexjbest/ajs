@@ -13,6 +13,7 @@
 #include <asmjit/asmjit.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include "line.h"
 
 #define regreg(N)  if (name == #N) return N
 #define debug_print(fmt, ...) \
@@ -42,131 +43,6 @@ using namespace std;
  * add transforming swaps
  * make byte emitting print to output better
  */
-
-
-class Line
-{
-  private:
-    uint32_t instruction;
-    asmjit::Operand ops[MAX_OPS];
-    uint32_t label;
-    uint32_t align;
-    uint8_t byte;
-    vector<int> dependencies;
-    vector<asmjit::X86Reg> regsIn;
-    vector<asmjit::X86Reg> regsOut;
-
-  public:
-    Line(uint32_t inst = kInstIdNone):instruction(inst), ops({noOperand, noOperand, noOperand}), label(-1), align(0), byte(-1), dependencies(vector<int>()), regsIn(vector<asmjit::X86Reg>()), regsOut(vector<asmjit::X86Reg>()) {}
-
-    uint32_t getInstruction() const {
-      assert(isInstruction());
-      return instruction;
-    }
-
-    uint32_t getLabel() const {
-      assert(isLabel());
-      return label;
-    }
-
-    uint32_t getByte() const {
-      assert(isByte());
-      return byte;
-    }
-
-    uint32_t getAlign() const {
-      assert(isAlign());
-      return align;
-    }
-
-    asmjit::Operand getOp(int i) const {
-      assert(i < MAX_OPS);
-      return ops[i];
-    }
-
-    const asmjit::Operand* getOpPtr(int i) const {
-      assert(i < MAX_OPS);
-      return &ops[i];
-    }
-
-    vector<int>& getDependencies() {
-      return dependencies;
-    }
-
-    vector<asmjit::X86Reg> getRegsIn() const {
-      return regsIn;
-    }
-
-    vector<asmjit::X86Reg> getRegsOut() const {
-      return regsOut;
-    }
-
-    int isInstruction() const {
-      return instruction != kInstIdNone;
-    }
-
-    int isLabel() const {
-      return label != -1;
-    }
-
-    int isAlign() const {
-      return align != 0;
-    }
-
-    int isByte() const {
-      return byte != (uint8_t)-1;
-    }
-
-    void setInstruction(uint32_t inst) {
-      instruction = inst;
-      label = -1;
-      align = 0;
-      byte = -1;
-    }
-
-    void setLabel(uint32_t lab) {
-      instruction = kInstIdNone;
-      label = lab;
-      align = 0;
-      byte = -1;
-    }
-
-    void setAlign(uint8_t ali) {
-      instruction = kInstIdNone;
-      label = -1;
-      align = ali;
-      byte = -1;
-    }
-
-    void setByte(uint8_t byt) {
-      instruction = kInstIdNone;
-      label = -1;
-      align = 0;
-      byte = byt;
-    }
-
-    void setOp(int i, asmjit::Operand op) {
-      assert(i < MAX_OPS);
-      ops[i] = op;
-    }
-
-    void addRegIn(X86Reg reg) {
-      regsIn.push_back(reg);
-    }
-
-    void addRegOut(X86Reg reg) {
-      regsOut.push_back(reg);
-    }
-
-    void addDependency(int dep) {
-      dependencies.push_back(dep);
-    }
-
-    friend std::ostream& operator << (std::ostream& outs, const Line& l)
-    {
-      return outs << "(" << l.instruction << "," << l.align << "," << l.label << "," << (int)l.byte <<")";
-    }
-};
 
 
 class ajs {
