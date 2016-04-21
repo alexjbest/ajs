@@ -16,7 +16,7 @@
 
 #define regreg(N)  if (name == #N) return N
 #define debug_print(fmt, ...) \
-  do { fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
+  do { fprintf(stderr, "# %s:%d:%s(): " fmt, __FILE__, \
       __LINE__, __func__, __VA_ARGS__); } while (0)
 
 #define stringify( x ) static_cast< std::ostringstream & >( \
@@ -33,7 +33,6 @@ using namespace std;
  * extend parsing part to handle spaces well
  * check if there are other directives that will affect performance
  * check if there are other directives that will affect correctness
- * add capability for intel syntax
  * make repz ret work
  * make shr %r9 work
  * do registers more programmatically?
@@ -162,7 +161,13 @@ class Line
     void addDependency(int dep) {
       dependencies.push_back(dep);
     }
+
+    friend std::ostream& operator << (std::ostream& outs, const Line& l)
+    {
+      return outs << "(" << l.instruction << "," << l.align << "," << l.label << "," << (int)l.byte <<")";
+    }
 };
+
 
 class ajs {
 
@@ -217,20 +222,20 @@ class ajs {
 
     static int64_t getVal(string val) {
       val = trim(val);
-      std::size_t loc = val.find_first_of("+-\0", 1);
+      size_t loc = val.find_first_of("+-\0", 1);
       if (loc != std::string::npos)
         return getVal(val.substr(0, loc)) + getVal(val.substr(loc));
       loc = val.find('x');
       if (loc != std::string::npos)
-        return std::strtoll(val.c_str(), NULL, 16);
-      return std::strtoll(val.c_str(), NULL, 10);
+        return std::stol(val.c_str(), NULL, 16);
+      return std::stol(val.c_str(), NULL, 10);
     }
 
     static Imm getValAsImm(string val) {
       return Imm(getVal(val));
     }
 
-    static X86XmmReg getXmmRegFromName(string name) {
+    static X86Reg getXmmRegFromName(string name) {
       regreg(xmm0);
       regreg(xmm1);
       regreg(xmm2);
@@ -247,8 +252,7 @@ class ajs {
       regreg(xmm13);
       regreg(xmm14);
       regreg(xmm15);
-      assert(0);
-      return xmm0;
+      return noGpReg;
     }
 
     static X86GpReg getGpRegFromName(string name) {
@@ -268,70 +272,159 @@ class ajs {
       regreg(r13);  regreg(r13d);  regreg(r13w);              regreg(r13b);
       regreg(r14);  regreg(r14d);  regreg(r14w);              regreg(r14b);
       regreg(r15);  regreg(r15d);  regreg(r15w);              regreg(r15b);
-      assert(0);
-      return rax;
+      return noGpReg;
     }
 
     static X86Reg getRegFromName(string name) {
       if (name.at(0) == 'x')
         return getXmmRegFromName(name);
       return getGpRegFromName(name);
-      assert(0);
-      return rax;
     }
 
-    // Parses expressions of the form disp(base,offset,scalar) into asmjit's X86Mem
-    static X86Mem getPtrFromAddress(string addr, uint32_t size)
+    // Parses expressions of the form disp(base,index,scalar) or [base+index*scale+disp]
+    // into asmjit's X86Mem
+    static X86Mem getPtrFromAddress(string addr, uint32_t size, int intelSyntax)
     {
-      size_t i = addr.find("(");
-      int32_t disp = 0;
-      if (i > 0)
+      const char openBracket = intelSyntax ? '[' : '(';
+      if (!intelSyntax) // GAS syntax
       {
-        string d = addr.substr(0, i);
-        disp = getVal(d);
-      }
-      vector<string> bis = split(addr.substr(i + 1, addr.size() - 2 - i), ',');
-      X86GpReg base;
-      if (trim(bis[0]).length() != 0) // no base register
-        base = getGpRegFromName(trim(bis[0]).substr(1));
-      if (bis.size() > 1)
-      {
-        X86GpReg index = getGpRegFromName(trim(bis[1]).substr(1));
-        uint32_t scalar;
-        if (bis.size() > 2 && bis[2].length() != 0)
-          scalar = getVal(bis[2]);
-        else
-          scalar = 1;
-        uint32_t shift =
-          (scalar == 1) ? 0 :
-          (scalar == 2) ? 1 :
-          (scalar == 4) ? 2 :
-          (scalar == 8) ? 3 : -1;
+        size_t i = addr.find(openBracket);
+        int32_t disp = 0;
+        if (i > 0)
+        {
+          string d = addr.substr(0, i);
+          disp = getVal(d);
+        }
+        vector<string> bis = split(addr.substr(i + 1, addr.size() - 2 - i), ',');
+        X86GpReg base;
+        if (trim(bis[0]).length() != 0) // no base register
+          base = getGpRegFromName(trim(bis[0]).substr(1));
+        if (bis.size() > 1)
+        {
+          X86GpReg index = getGpRegFromName(trim(bis[1]).substr(1));
+          uint32_t scalar;
+          if (bis.size() > 2 && bis[2].length() != 0)
+            scalar = getVal(bis[2]);
+          else
+            scalar = 1;
+          uint32_t shift =
+            (scalar == 1) ? 0 :
+            (scalar == 2) ? 1 :
+            (scalar == 4) ? 2 :
+            (scalar == 8) ? 3 : -1;
+          if (trim(bis[0]).length() == 0)
+            return ptr_abs(0, index, shift, disp, size);
+          return ptr(base, index, shift, disp, size);
+        }
         if (trim(bis[0]).length() == 0)
-          return ptr_abs(0, index, shift, disp, size);
-        return ptr(base, index, shift, disp, size);
+          return ptr_abs(0, disp, size);
+        return ptr(base, disp, size);
       }
-      if (trim(bis[0]).length() == 0)
-        return ptr_abs(0, disp, size);
-      return ptr(base, disp, size);
+      else // Intel syntax
+      {
+        X86GpReg base = noGpReg, index = noGpReg;
+        size_t i, pi;
+        int32_t disp = 0;
+        uint32_t shift = 0;
+        int wantShift = 0, neg = 0;
+        string token;
+        for (i = addr.find(openBracket) + 1, pi = i; i < addr.size(); i++)
+        {
+          if (addr.at(i) == '+' || addr.at(i) == '-' || addr.at(i) == '*' || addr.at(i) == ']')
+          {
+            token = addr.substr(pi, i - pi);
+            try // Is it an number?
+            {
+              uint32_t val = getVal(token);
+              if (wantShift) {
+                shift =
+                  (val == 1) ? 0 :
+                  (val == 2) ? 1 :
+                  (val == 4) ? 2 :
+                  (val == 8) ? 3 : -1;
+                if (index == noGpReg) {
+                  index = base;
+                  base = noGpReg;
+                }
+              }
+              else {
+                disp = neg ? -val : val;
+              }
+            }
+            catch (...) {
+              if (base == noGpReg)
+                base = getGpRegFromName(token);
+              else
+                index = getGpRegFromName(token);
+            }
+
+            pi = i + 1;
+            if (addr.at(i) == '*') {
+              wantShift = 1;
+            }
+            else {
+              wantShift = 0;
+            }
+            if (addr.at(i) == '-') {
+              neg = 1;
+            }
+            else {
+              neg = 0;
+            }
+          }
+        }
+        if (index != noGpReg) {
+          if (base == noGpReg)
+            return ptr_abs(0, index, shift, disp, size);
+          return ptr(base, index, shift, disp, size);
+        }
+        if (base == noGpReg)
+          return ptr_abs(0, disp, size);
+        return ptr(base, disp, size);
+      }
     }
 
-    static Operand getOpFromStr(string op, X86Assembler& a, map<string, Label>& labels, uint32_t size)
+    static Operand getOpFromStr(string op, X86Assembler& a, map<string, Label>& labels, uint32_t size, int intelSyntax)
     {
+      // bracket style depends on syntax used
+      const char openBracket = intelSyntax ? '[' : '(';
       op = trim(op);
 
-      if (count(op.begin(), op.end(), '(') > 0)
-        return getPtrFromAddress(op, size);
-      string sub = op.substr(1);
-      if (op.at(0) == '%')
-        return getRegFromName(sub);
-      if (op.at(0) == '$')
-        return getValAsImm(sub);
-      if (op.length() > 0)
+      if (count(op.begin(), op.end(), openBracket) > 0)
+        return getPtrFromAddress(op, size, intelSyntax);
+      if (!intelSyntax) // GAS syntax
       {
-        if (labels.count(op) == 0)
-          labels[op] = a.newLabel();
-        return labels[op];
+        string sub = op.substr(1);
+        if (op.at(0) == '%')
+          return getRegFromName(sub);
+        if (op.at(0) == '$')
+          return getValAsImm(sub);
+        if (op.length() > 0)
+        {
+          if (labels.count(op) == 0)
+            labels[op] = a.newLabel();
+          return labels[op];
+        }
+      }
+      else // Intel syntax
+      {
+        X86Reg reg = getRegFromName(op);
+        if (reg != noGpReg) // Is it a register?
+          return reg;
+        try // Is it an immediate?
+        {
+          Imm val = getValAsImm(op);
+          return val;
+        }
+        catch (...)
+        {
+          if (op.length() > 0) // No, it's a label!
+          {
+            if (labels.count(op) == 0)
+              labels[op] = a.newLabel();
+            return labels[op];
+          }
+        }
       }
       assert(0);
       return noOperand;
@@ -368,7 +461,6 @@ class ajs {
         return true;
       if (b.isByte())
         return true;
-
 
       const X86InstInfo& ainfo = X86Util::getInstInfo(a.getInstruction()),
             &binfo = X86Util::getInstInfo(b.getInstruction());
@@ -517,6 +609,10 @@ class ajs {
 
       a.reset();
 
+      // set which chars define which line types based on intelSyntax flag
+      const char commentChar   = intelSyntax ? ';' : '#';
+      const char directiveChar = intelSyntax ? '[' : '.';
+
       while (getline(is, str))
       {
         str = trim(str);
@@ -533,10 +629,14 @@ class ajs {
             parsed.erase(parsed.begin());
             continue;
           }
-          if (parsed[0].at(0) == '#') // first char of first token is '#' so have a comment
-          {
+
+          // first char is the comment character so we have a comment
+          if (parsed[0].at(0) == commentChar)
             break;
-          }
+
+          // first char is the %, the nasm syntax macro character, ignore
+          if (parsed[0].at(0) == '%')
+            break;
 
           Line newLine;
           if (*parsed[0].rbegin() == ':') // last character of first token is colon, so we are at a label
@@ -549,9 +649,9 @@ class ajs {
 
             parsed.erase(parsed.begin());
           }
-          else if (parsed[0].at(0) == '.') // first char of first token is '.' so have a directive
+          else if (parsed[0].at(0) == directiveChar) // first char is the directive character so we have a directive
           {
-            if (parsed[0] == ".align") {
+            if (parsed[0].substr(1, 5) == "align") {
               parsed.erase(parsed.begin());
 
               std::vector<std::string> args = split(parsed[0], ',');
@@ -569,13 +669,32 @@ class ajs {
 
               newLine.setByte(getVal(args[0]));
             }
-            else // ignore non-align directives
+            else // ignore non-align/byte directives
             {
               break;
             }
           }
+          else if (intelSyntax && parsed[0] == "db") // yasm pseudo instructions TODO check for more
+          {
+            parsed.erase(parsed.begin());
+
+            std::vector<std::string> args = split(parsed[0], ',');
+            while (parsed.size() > 0) // done with this line
+              parsed.erase(parsed.begin());
+
+            newLine.setByte(getVal(args[0]));
+          }
           else // normal instruction
           {
+            if (parsed[0] == "ASM_START")
+              break;
+            if (parsed[0] == "end")
+              break;
+            if (parsed[0] == "jrcxz" || parsed[0] == "jecxz") // add extra arg to jr/ecx instrs
+            {
+              parsed[1] = parsed[0].substr(1,3) + ',' + parsed[1];
+              parsed[0] = "jecxz";
+            }
             uint32_t id = X86Util::getInstIdByName(parsed[0].c_str());
             uint32_t size = 0;
             if (id == kInstIdNone)
@@ -600,8 +719,19 @@ class ajs {
             }
             parsed.erase(parsed.begin());
 
-            int i = 0;
             newLine.setInstruction(id);
+            while (parsed.size() >= 2)
+            {
+              if (!parsed[1].size())
+              {
+                parsed.erase(parsed.begin() + 1);
+                continue;
+              }
+              if (parsed[1].at(0) == commentChar)
+                break;
+              parsed[0] += parsed[1];
+              parsed.erase(parsed.begin() + 1);
+            }
             if (parsed.size() > 0)
             {
               std::vector<std::string> args = split(parsed[0], ',');
@@ -620,10 +750,11 @@ class ajs {
                 }
               }
 
-              reverse(args.begin(), args.end());
+              if (!intelSyntax)
+                reverse(args.begin(), args.end());
 
-              for (i = 0; i < args.size(); i++)
-                newLine.setOp(i, getOpFromStr(args[i], a, labels, size));
+              for (int i = 0; i < args.size(); i++)
+                newLine.setOp(i, getOpFromStr(args[i], a, labels, size, intelSyntax));
             }
 
             addRegsRead(newLine);
