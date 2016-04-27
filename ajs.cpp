@@ -1128,6 +1128,7 @@ int main(int argc, char* argv[])
 
       case 'v':
         verbose = 1;
+        printf("# verbose mode on\n");
         break;
     }
   }
