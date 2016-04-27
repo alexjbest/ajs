@@ -675,7 +675,7 @@ class ajs {
     {
       uint32_t cycles_high, cycles_high1, cycles_low, cycles_low1;
       uint64_t start, end, total;
-      const int loopsize = 50;
+      const int loopsize = 10, trials = 5;
       volatile int k = 0;
 
       // In order to run 'funcPtr' it has to be casted to the desired type.
@@ -686,9 +686,10 @@ class ajs {
       // that tries to make it visible that a function-type is returned.
       FuncType callableFunc = asmjit_cast<FuncType>(funcPtr);
 
-      for (volatile int timing = 0; timing < 2; timing++)
+      total = -1;
+      for (int i = 0; i < trials; i++)
       {
-        total = 0;
+        int curTotal = 0;
         for (k = 0; k < loopsize; k++)
         {
           asm volatile (
@@ -711,18 +712,21 @@ class ajs {
 
           start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
           end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
-          total += end - start - overhead;
+          curTotal += end - start - overhead;
 
-          if (target != 0 && k >= loopsize >> 2 && total > (target + 20) * (k+1))
+          if (target != 0 && k >= loopsize >> 1 && total > (target + 20) * (k + 1))
           {
-            if (verbose && timing == 1)
+            if (verbose)
               printf("# cannot hit target, aborting\n");
             break;
           }
         }
-      }
 
-      total /= k;
+        curTotal /= k;
+
+        if (total == -1 || total > curTotal)
+          total = curTotal;
+      }
 
       if (verbose)
         printf("# total time: %ld\n", total);
@@ -842,6 +846,9 @@ class ajs {
 
       for (int i = 0; i < func.size(); i++)
         perm.insert(perm.end(), i);
+
+      for (int i = 0; i < 10000; i++)
+        timeFunc(func, perm, a, runtime, numLabels, 0, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
 
       uint64_t bestTime = timeFunc(func, perm, a, runtime, numLabels, bestTime, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
       bestPerm = perm;
