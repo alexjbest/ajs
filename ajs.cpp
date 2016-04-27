@@ -29,23 +29,6 @@ using namespace asmjit;
 using namespace x86;
 using namespace std;
 
-/* TODO list:
- * ----------
- * check if for any other base for immediate values needed
- * extend parsing part to handle spaces well
- * check if there are other directives that will affect performance
- * check if there are other directives that will affect correctness
- * make repz ret work
- * make shr %r9 work
- * do registers more programmatically?
- * add help option, usage message etc.
- * add make dependencies for headers
- * make the dependency update stuff work better when adding nops, i.e. update indices
- * add transforming swaps
- * make byte emitting print to output better
- */
-
-
 class ajs {
 
   public:
