@@ -9,8 +9,8 @@ filename="${filename%.*}"
 echo "optimising $FILE"
 if [[ $FILE == *.asm ]]
 then
-	m4 -I../mpir/mpn/ $FILE | ./ajs -o "$filename"_optimised."$extension"
+	m4 -I../mpir/mpn/ $FILE | ./ajs -o "$filename"_optimised."$extension" "${@:2}" 
 elif [[ $FILE == *.as ]]
 then
-	../mpir/yasm/yasm -e -I../mpir/ $FILE | ./ajs -i -o "$filename"_optimised."$extension"
+	../mpir/yasm/yasm -e -I../mpir/ $FILE | ./ajs -i -o "$filename"_optimised."$extension" "${@:2}" 
 fi
