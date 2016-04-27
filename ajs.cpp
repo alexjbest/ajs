@@ -395,6 +395,8 @@ class ajs {
     {
       if (!l.isInstruction())
         return;
+      if (l.getInstruction() == X86Util::getInstIdByName("sahf"))
+        l.addRegIn(rax);
       for (int i = 0; i < MAX_OPS; i++)
       {
         if (l.getOp(i).isReg())
@@ -438,6 +440,8 @@ class ajs {
         return;
       if (l.getOp(0).isReg())
         l.addRegOut(*static_cast<const X86Reg*>(l.getOpPtr(0)));
+      if (l.getInstruction() == X86Util::getInstIdByName("lahf"))
+        l.addRegOut(rax);
     }
 
     static void addDeps(vector<Line>::iterator newLine, vector<Line>& func)
