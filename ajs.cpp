@@ -13,6 +13,7 @@
 #include <asmjit/asmjit.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <csignal>
 #include "line.h"
 
 #define regreg(N)  if (name == #N) return N
@@ -48,6 +49,8 @@ using namespace std;
 class ajs {
 
   public:
+    static int exiting;
+
     static std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
       std::stringstream ss(s);
       std::string item;
@@ -869,6 +872,8 @@ class ajs {
 
       while (level >= 0)
       {
+        if (exiting)
+          break;
         // if not done at current level down a level
         if (remaining[level])
         {
@@ -1068,12 +1073,23 @@ class ajs {
     }
 };
 
+int ajs::exiting = 0;
+
+void sig_handler(int signo)
+{
+  if (signo == SIGINT)
+    ajs::exiting = true;
+}
+
 int main(int argc, char* argv[])
 {
   int c, start = 0, end = 0, limbs = 111, verbose = 0, nopLine = -1, intelSyntax = 0;
   char *outFile = NULL;
   char *inFile = NULL;
   string signature = "add_n";
+
+  if (signal(SIGINT, sig_handler) == SIG_ERR)
+    printf("\ncan't catch SIGINT\n");
 
   // deal with optional arguments: limbs and output file
   while (1) {
