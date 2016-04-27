@@ -477,7 +477,7 @@ class ajs {
       istream& is = file != NULL ? ifs : cin;
       string str;
 
-      if (is.bad())
+      if (is.fail())
       {
         printf("# error: opening file failed, is filename correct?\n");
         return -1;
@@ -748,7 +748,7 @@ class ajs {
           cursor[0] = curLine.getByte();
           cursor += 1;
           if (verbose)
-            a.getLogger()->logFormat(kLoggerStyleDefault,"\t.byte\t%d\n", curLine.getByte());
+            a.getLogger()->logFormat(Logger::kStyleDefault,"\t.byte\t%d\n", curLine.getByte());
         }
         if (!curLine.isInstruction())
           continue;
@@ -776,6 +776,8 @@ class ajs {
           arg1, arg2, arg3, arg4, arg5, arg6);
     }
 
+    // Linux call order:
+    // RDI, RSI, RDX, RCX, R8, R9
     static void getArgs(uint64_t *mpn1, uint64_t *mpn2, uint64_t *mpn3, uint64_t *mpn4, const uint64_t limbs, string signature, uint64_t& arg1, uint64_t& arg2, uint64_t& arg3, uint64_t& arg4, uint64_t& arg5, uint64_t& arg6)
     {
       if (signature == "double")
@@ -1005,6 +1007,7 @@ class ajs {
       int numLabels = 0;
 
       logger.setIndentation("\t");
+      logger.addOptions(Logger::kOptionGASFormat);
 
       // Create JitRuntime and X86 Assembler/Compiler.
       JitRuntime runtime;
