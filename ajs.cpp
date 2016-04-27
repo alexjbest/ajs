@@ -15,6 +15,7 @@
 #include <getopt.h>
 #include <csignal>
 #include "line.h"
+#include "utils.h"
 
 #define regreg(N)  if (name == #N) return N
 #define debug_print(fmt, ...) \
@@ -33,54 +34,6 @@ class ajs {
 
   public:
     static int exiting;
-
-    static std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
-      std::stringstream ss(s);
-      std::string item;
-      while (std::getline(ss, item, delim)) {
-        elems.push_back(item);
-      }
-      return elems;
-    }
-
-    static std::vector<std::string> &split2(const std::string &s, char delim, char delim2, std::vector<std::string> &elems) {
-      std::stringstream ss(s);
-      std::string item;
-      while (std::getline(ss, item, delim)) {
-        std::vector<std::string> elems2 = split(item, delim2);
-        elems.insert(elems.end(), elems2.begin(), elems2.end());
-      }
-      return elems;
-    }
-
-    static std::vector<std::string> split(const std::string &s, char delim) {
-      std::vector<std::string> elems;
-      split(s, delim, elems);
-      return elems;
-    }
-
-    static std::vector<std::string> split2(const std::string &s, char delim, char delim2) {
-      std::vector<std::string> elems;
-      split2(s, delim, delim2, elems);
-      return elems;
-    }
-
-    // trim from start
-    static inline std::string &ltrim(std::string &s) {
-      s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
-      return s;
-    }
-
-    // trim from end
-    static inline std::string &rtrim(std::string &s) {
-      s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
-      return s;
-    }
-
-    // trim from both ends
-    static inline std::string &trim(std::string &s) {
-      return ltrim(rtrim(s));
-    }
 
     static int64_t getVal(string val) {
       val = trim(val);
@@ -1119,7 +1072,7 @@ int main(int argc, char* argv[])
 
       case 'r':
         {
-          vector<string> range = ajs::split(optarg, '-');
+          vector<string> range = split(optarg, '-');
           start = std::strtol(range[0].c_str(), NULL, 10);
           end = std::strtol(range[1].c_str(), NULL, 10);
           printf("# optimising range %d to %d\n", start, end);
