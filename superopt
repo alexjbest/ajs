@@ -2,7 +2,20 @@
 
 set -e
 
+usage="Usage: $(basename "$0") filename [options]
+Description: script to automatically apply preprocessing based on file extension
+and then call ajs, all options are passed onto ajs, whose usage is as follows:
+"
+
 FILE=$1
+
+if [[ "$FILE" == "--help" ]]
+then
+	echo "$usage"
+	./ajs --help
+	exit
+fi
+
 filename=$(basename "$FILE")
 filename="${filename%.*}"
 echo "optimising $FILE"
@@ -17,4 +30,6 @@ then
 	gcc -S -O2 $FILE -o "$filename"_tmp.s
 	./ajs "$filename"_tmp.s -o "$filename"_optimised.asm "${@:2}"
 	rm "$filename"_tmp.s
+else
+	echo "error: file format not recognised"
 fi
