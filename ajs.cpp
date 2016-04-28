@@ -1080,7 +1080,7 @@ void display_usage()
 "Options:                                                                     \n"
 "  --help                  Display this message                               \n"
 "  --intel                 Parse input with Intel/YASM parser                 \n"
-"  --limbs <number>        Use <number> limb mpns when optimising             \n"
+"  --limbs <number>        Use mpns with <number> limbs when optimising       \n"
 "  --nop <number>          Additionally try adding nops at line <number>      \n"
 "  --out <file>            Write the output to <file> as well as stdout       \n"
 "  --range <start>-<end>   Only superoptimise the lines <start> to            \n"
