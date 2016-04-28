@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -11,11 +12,10 @@
 #include <list>
 #include <assert.h>
 #include <asmjit/asmjit.h>
-#include <stdlib.h>
-#include <getopt.h>
 #include <csignal>
 #include "line.h"
 #include "utils.h"
+#include <getopt.h>
 
 #define regreg(N)  if (name == #N) return N
 #define debug_print(fmt, ...) \
@@ -1071,6 +1071,49 @@ void sig_handler(int signo)
     ajs::exiting = true;
 }
 
+/* prints a nice usage/help message */
+void display_usage()
+{
+  printf(
+"Usage: ajs [options] [filename]                                              \n"
+"  If a filename is not specified ajs attempts to read its input from stdin   \n"
+"Options:                                                                     \n"
+"  --help                  Display this message                               \n"
+"  --intel                 Parse input with Intel/YASM parser                 \n"
+"  --limbs <number>        Use <number> limb mpns when optimising             \n"
+"  --nop <number>          Additionally try adding nops at line <number>      \n"
+"  --out <file>            Write the output to <file> as well as stdout       \n"
+"  --range <start>-<end>   Only superoptimise the lines <start> to            \n"
+"                          <end> (inclusive)                                  \n"
+"  --signature <signature> Give the function inputs of the format <signature>,\n"
+"                          where the possible signatures are as follows       \n"
+"                            double:       mpn, length                        \n"
+"                            copyi:        mpn, mpn, length                   \n"
+"                            add_n:        mpn, mpn, mpn, length              \n"
+"                            addadd_n:     mpn, mpn, mpn, mpn, length         \n"
+"                            mul_basecase: mpn, mpn, length, mpn, length      \n"
+"                          If no signature is specified add_n is used         \n"
+"  --verbose               Print out all sequences tried                      \n"
+"                                                                             \n"
+"(abbreviations can be used e.g. --sig or just -s (with a single -))          \n"
+"Examples:                                                                    \n"
+"  Basic usage:            ajs test.asm                                       \n"
+"  Writing out:            ajs test.asm -o test_optimised.asm                 \n"
+"  Intel syntax:           ajs -i test.as                                     \n"
+"  Signature selection:    ajs --sig=double half.asm                          \n"
+"  Range selection:        ajs -r 1-2 four_line_file.asm                      \n"
+"  Debugging:              ajs test.asm | as                                  \n"
+"                          ajs -v test.asm                                    \n"
+"                          ajs                                                \n"
+"                          > add    %%rax,%%rax                               \n"
+"                          > ret                                              \n"
+"                          > <Ctrl-D>                                         \n"
+"  Piping input:           m4 test.asm | ajs -o test_optimised.asm            \n"
+"  Use with gcc:           gcc -S -O3 tst.c -o tst.s                          \n"
+"                            && ajs tst.s -o tst_optimised.s                  \n"
+      );
+}
+
 int main(int argc, char* argv[])
 {
   int c, start = 0, end = 0, limbs = 111, verbose = 0, nopLine = -1,
@@ -1080,49 +1123,71 @@ int main(int argc, char* argv[])
   string signature = "add_n";
 
   if (signal(SIGINT, sig_handler) == SIG_ERR)
-    printf("\ncan't catch SIGINT\n");
+    printf("warning: can't catch SIGINT\n");
 
-  // deal with optional arguments: limbs and output file
-  while (1) {
-    int this_option_optind = optind ? optind : 1;
-    int option_index = 0;
-    static struct option long_options[] = {
-      {"limbs",     required_argument, 0,  0 },
-      {"nop",       required_argument, 0,  0 },
-      {"out",       required_argument, 0,  0 },
-      {"range",     required_argument, 0,  0 },
-      {"signature", required_argument, 0,  0 },
-      {"verbose",   no_argument,       0,  0 },
-      {"intel",     no_argument,       0,  0 },
-      {0,           0,                 0,  0 }
-    };
+  // deal with command line options
 
-    c = getopt_long(argc, argv, "il:n:o:r:s:v",
-        long_options, &option_index);
-    if (c == -1)
-      break;
+  int this_option_optind = optind ? optind : 1;
+  int option_index = 0;
+  static struct option long_options[] = {
+    {"help",      no_argument,       0, 'h'},
+    {"intel",     no_argument,       0, 'i'},
+    {"limbs",     required_argument, 0, 'l'},
+    {"nop",       required_argument, 0, 'n'},
+    {"out",       required_argument, 0, 'o'},
+    {"range",     required_argument, 0, 'r'},
+    {"signature", required_argument, 0, 's'},
+    {"verbose",   no_argument,       0, 'v'},
+    {0,           0,                 0, 0  }
+  };
+
+  while ((c = getopt_long(argc, argv, "hil:n:o:r:s:v",
+        long_options, &option_index)) != -1) {
 
     switch (c) {
+      case '?':
+        printf("Unrecognised option\n");
+      case 'h':
+        display_usage();
+        return 0;
+
+      case 'i':
+        intelSyntax = 1;
+        printf("# assuming intel syntax\n");
+        break;
+
       case 'l':
         limbs = std::strtol(optarg, NULL, 10);
-        printf("# optimising for %s limbs\n", optarg);
+        if (limbs == 0)
+        {
+          printf("# error: number of limbs not recognised, falling back to default\n");
+          limbs = 111;
+        }
+        printf("# optimising for %d limbs\n", limbs);
         break;
 
       case 'n':
         nopLine = std::strtol(optarg, NULL, 10) - 1;
-        printf("# inserting nops at line %s\n", optarg);
+        if (nopLine == -1)
+          printf("# error: NOT inserting nops\n");
+        else
+          printf("# inserting nops at line %d\n", nopLine);
         break;
 
       case 'o':
         outFile = optarg;
-        printf("# writing optimised function to %s\n", optarg);
+        printf("# writing optimised function to %s\n", outFile);
         break;
 
       case 'r':
         {
           vector<string> range = split(optarg, '-');
           start = std::strtol(range[0].c_str(), NULL, 10);
+          if (start == 0)
+            printf("# error: start line not recognised, using first line\n");
           end = std::strtol(range[1].c_str(), NULL, 10);
+          if (end == 0)
+            printf("# error: end line not recognised, using last line\n");
           printf("# optimising range %d to %d\n", start, end);
         }
         break;
@@ -1132,11 +1197,6 @@ int main(int argc, char* argv[])
         printf("# function signature %s\n", optarg);
         break;
 
-      case 'i':
-        intelSyntax = 1;
-        printf("# assuming intel syntax\n");
-        break;
-
       case 'v':
         verbose = 1;
         printf("# verbose mode on\n");
@@ -1144,7 +1204,7 @@ int main(int argc, char* argv[])
     }
   }
 
-  if (argc >= 2)
+  if (argc - optind >= 1)
   {
     inFile = argv[optind];
     printf("# source file: %s\n", inFile);
