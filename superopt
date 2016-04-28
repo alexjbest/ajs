@@ -12,4 +12,9 @@ then
 elif [[ $FILE == *.as ]]
 then
 	../mpir/yasm/yasm -e -I../mpir/ $FILE | ./ajs -i -o "$filename"_optimised.asm "${@:2}"
+elif [[ $FILE == *.c ]]
+then
+	gcc -S -O2 $FILE -o "$filename"_tmp.s
+	./ajs "$filename"_tmp.s -o "$filename"_optimised.asm "${@:2}"
+	rm "$filename"_tmp.s
 fi
