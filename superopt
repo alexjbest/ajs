@@ -4,12 +4,14 @@ set -e
 
 usage="Usage: $(basename "$0") filename [options]
 Description: script to automatically apply preprocessing based on file extension
-and then call ajs, all options are passed onto ajs, whose usage is as follows:
+and then call ajs with output file set to filename_optimised.asm.
+All options are passed onto ajs (in particular the output file can be overriden).
+The options for ajs are as follows:
 "
 
 FILE=$1
 
-if [[ "$FILE" == "--help" ]]
+if [ "$FILE" == "--help" ] || [ "$FILE" == "" ]
 then
 	echo "$usage"
 	./ajs --help
