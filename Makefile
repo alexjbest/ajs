@@ -29,7 +29,10 @@ all: $(LIBASMJIT) ajs.cpp
 $(LIBASMJIT): $(ASMJITOBJS)
 	ar rvs $(LIBASMJIT) $^
 
-.PHONY: clean
+.PHONY: clean, test
 
 clean:
 	rm -f $(ASMJITOBJS) $(LIBASMJIT) ajs
+
+check: all
+	./test
