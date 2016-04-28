@@ -96,8 +96,8 @@ class ajs {
       return getGpRegFromName(name);
     }
 
-    // Parses expressions of the form disp(base,index,scalar) or [base+index*scale+disp]
-    // into asmjit's X86Mem
+    // Parses expressions of the form disp(base,index,scalar) or
+    // [base+index*scale+disp] into asmjit's X86Mem
     static X86Mem getPtrFromAddress(string addr, uint32_t size, int intelSyntax)
     {
       const char openBracket = intelSyntax ? '[' : '(';
@@ -145,7 +145,8 @@ class ajs {
         string token;
         for (i = addr.find(openBracket) + 1, pi = i; i < addr.size(); i++)
         {
-          if (addr.at(i) == '+' || addr.at(i) == '-' || addr.at(i) == '*' || addr.at(i) == ']')
+          if (addr.at(i) == '+' || addr.at(i) == '-' || addr.at(i) == '*' ||
+              addr.at(i) == ']')
           {
             token = addr.substr(pi, i - pi);
             try // Is it an number?
@@ -199,7 +200,8 @@ class ajs {
       }
     }
 
-    static Operand getOpFromStr(string op, X86Assembler& a, map<string, Label>& labels, uint32_t size, int intelSyntax)
+    static Operand getOpFromStr(string op, X86Assembler& a,
+        map<string, Label>& labels, uint32_t size, int intelSyntax)
     {
       // bracket style depends on syntax used
       const char openBracket = intelSyntax ? '[' : '(';
@@ -245,11 +247,14 @@ class ajs {
       return noOperand;
     }
 
-    static vector<X86Reg> intersection(const vector<X86Reg>& v1, const vector<X86Reg>& v2)
+    static vector<X86Reg> intersection(const vector<X86Reg>& v1, const
+        vector<X86Reg>& v2)
     {
       vector<X86Reg> in;
-      for (vector<X86Reg>::const_iterator ci1 = v1.begin(); ci1 != v1.end(); ++ci1)
-        for (vector<X86Reg>::const_iterator ci2 = v2.begin(); ci2 != v2.end(); ++ci2)
+      for (vector<X86Reg>::const_iterator ci1 = v1.begin(); ci1 != v1.end();
+          ++ci1)
+        for (vector<X86Reg>::const_iterator ci2 = v2.begin(); ci2 != v2.end();
+            ++ci2)
           if (*ci1 == *ci2)
             in.push_back(*ci2);
       return in;
@@ -257,8 +262,8 @@ class ajs {
 
     // returns whether line a depends on line b or not
     // i.e. if a followed b originally whether swapping is permissible in general
-    static bool dependsOn(vector<Line>::const_iterator ai, vector<Line>::const_iterator bi,
-        vector<Line>& func)
+    static bool dependsOn(vector<Line>::const_iterator ai,
+        vector<Line>::const_iterator bi, vector<Line>& func)
     {
       Line a = *ai, b = *bi;
       // labels, align and byte statements should have all possible dependencies
@@ -301,7 +306,8 @@ class ajs {
       vector<X86Reg> in;
 
       in = intersection(a.getRegsIn(), b.getRegsOut());
-      for (vector<X86Reg>::const_iterator ci = in.begin(); ci != in.end(); ++ci) // TODO poss change to if len
+      // TODO poss change to if len
+      for (vector<X86Reg>::const_iterator ci = in.begin(); ci != in.end(); ++ci)
       {
         return true;
       }
@@ -318,9 +324,11 @@ class ajs {
         vector<Line>::const_iterator li;
         for (li = ai + 1; li != func.end(); ++li)
         {
-          if (std::find(li->getRegsIn().begin(), li->getRegsIn().end(), *ci) != li->getRegsIn().end())
+          if (std::find(li->getRegsIn().begin(), li->getRegsIn().end(), *ci) !=
+              li->getRegsIn().end())
             return true;
-          if (std::find(li->getRegsOut().begin(), li->getRegsOut().end(), *ci) != li->getRegsOut().end())
+          if (std::find(li->getRegsOut().begin(), li->getRegsOut().end(), *ci)
+              != li->getRegsOut().end())
             break;
         }
         if (li == func.end())
@@ -387,18 +395,24 @@ class ajs {
     {
       // try to determine other dependencies
       int index = 0;
-      for (vector<Line>::iterator prevLine = func.begin(); prevLine != newLine; ++prevLine, index++)
+      for (vector<Line>::iterator prevLine = func.begin(); prevLine != newLine;
+          ++prevLine, index++)
       {
         if (dependsOn(newLine, prevLine, func))
         {
-          if (find(newLine->getDependencies().begin(), newLine->getDependencies().end(), index) == newLine->getDependencies().end())
+          if (find(newLine->getDependencies().begin(),
+                newLine->getDependencies().end(), index) ==
+              newLine->getDependencies().end())
           {
             newLine->addDependency(index);
 
             // we can now remove any of prevLine's dependencies from newLine
             // TODO does this make things faster?
-            std::vector<int>::iterator position = newLine->getDependencies().begin();
-            for (vector<int>::iterator ci2 = prevLine->getDependencies().begin(); ci2 != prevLine->getDependencies().end(); ++ci2)
+            std::vector<int>::iterator position =
+              newLine->getDependencies().begin();
+            for (vector<int>::iterator ci2 =
+                prevLine->getDependencies().begin(); ci2 !=
+                prevLine->getDependencies().end(); ++ci2)
             {
               position = std::find(position, newLine->getDependencies().end(), *ci2);
               if (position != newLine->getDependencies().end())
@@ -409,7 +423,8 @@ class ajs {
       }
     }
 
-    static int loadFuncFromFile(vector<Line>& func, X86Assembler& a, const char* file, const int intelSyntax)
+    static int loadFuncFromFile(vector<Line>& func, X86Assembler& a, const
+        char* file, const int intelSyntax)
     {
       map<string, Label> labels;
 
@@ -606,8 +621,10 @@ class ajs {
       return labels.size();
     }
 
-    static uint64_t callFunc(void* funcPtr, JitRuntime& runtime, uint64_t target, const int verbose, const uint64_t overhead,
-        uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
+    static uint64_t callFunc(void* funcPtr, JitRuntime& runtime, uint64_t target,
+        const int verbose, const uint64_t overhead, uint64_t arg1,
+        uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t
+        arg6)
     {
       uint32_t cycles_high, cycles_high1, cycles_low, cycles_low1;
       uint64_t start, end, total;
@@ -616,7 +633,8 @@ class ajs {
 
       // In order to run 'funcPtr' it has to be casted to the desired type.
       // Typedef is a recommended and safe way to create a function-type.
-      typedef int (*FuncType)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t);
+      typedef int (*FuncType)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
+          uint64_t);
 
       // Using asmjit_cast is purely optional, it's basically a C-style cast
       // that tries to make it visible that a function-type is returned.
@@ -672,7 +690,8 @@ class ajs {
       return total;
     }
 
-    static void addFunc(vector<Line>& func, list<int>& perm, X86Assembler& a, int numLabels, int verbose)
+    static void addFunc(vector<Line>& func, list<int>& perm, X86Assembler& a,
+        int numLabels, int verbose)
     {
       Label labels[numLabels];
       for (int i = 0; i < numLabels; i++)
@@ -705,13 +724,16 @@ class ajs {
             curLine.setOp(i, labels[curLine.getOp(i).getId()]);
           }
         }
-        a.emit(curLine.getInstruction(), curLine.getOp(0), curLine.getOp(1), curLine.getOp(2));
+        a.emit(curLine.getInstruction(), curLine.getOp(0), curLine.getOp(1),
+            curLine.getOp(2));
       }
     }
 
     // makes a function with assembler then times the generated function with callFunc.
-    static uint64_t timeFunc(vector<Line>& func, list<int>& perm, X86Assembler& a, JitRuntime& runtime, int numLabels, uint64_t target, const int verbose, uint64_t overhead,
-        uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
+    static uint64_t timeFunc(vector<Line>& func, list<int>& perm, X86Assembler& a,
+        JitRuntime& runtime, int numLabels, uint64_t target,
+        const int verbose, uint64_t overhead, uint64_t arg1, uint64_t arg2,
+        uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
       a.reset();
 
@@ -725,7 +747,10 @@ class ajs {
 
     // Linux call order:
     // RDI, RSI, RDX, RCX, R8, R9
-    static void getArgs(uint64_t *mpn1, uint64_t *mpn2, uint64_t *mpn3, uint64_t *mpn4, const uint64_t limbs, string signature, uint64_t& arg1, uint64_t& arg2, uint64_t& arg3, uint64_t& arg4, uint64_t& arg5, uint64_t& arg6)
+    static void getArgs(uint64_t *mpn1, uint64_t *mpn2, uint64_t *mpn3,
+        uint64_t *mpn4, const uint64_t limbs, string signature, uint64_t& arg1,
+        uint64_t& arg2, uint64_t& arg3, uint64_t& arg4, uint64_t& arg5,
+        uint64_t& arg6)
     {
       if (signature == "double")
       {
@@ -773,7 +798,11 @@ class ajs {
       }
     }
 
-    static uint64_t tryPerms(list<int>& bestPerm, vector<Line>& func, X86Assembler& a, JitRuntime& runtime, const int numLabels, const int from, const int to, const int verbose, const uint64_t overhead, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
+    static uint64_t tryPerms(list<int>& bestPerm, vector<Line>& func,
+        X86Assembler& a, JitRuntime& runtime, Logger& logger, const int numLabels,
+        const int from, const int to, const int verbose, const uint64_t overhead,
+        uint64_t arg1, uint64_t arg2, uint64_t arg3,
+        uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
       int count = 0, level = 0;
       vector< list<int> > lines(to + 1 - from);
@@ -783,10 +812,17 @@ class ajs {
       for (int i = 0; i < func.size(); i++)
         perm.insert(perm.end(), i);
 
+      // 'warm up' the processor?
       for (int i = 0; i < 10000; i++)
-        timeFunc(func, perm, a, runtime, numLabels, 0, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
+        timeFunc(func, perm, a, runtime, numLabels, 0, 0, overhead, arg1, arg2,
+            arg3, arg4, arg5, arg6);
 
-      uint64_t bestTime = timeFunc(func, perm, a, runtime, numLabels, bestTime, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
+      // set logger if we are in verbose mode
+      if (verbose)
+        a.setLogger(&logger);
+
+      uint64_t bestTime = timeFunc(func, perm, a, runtime, numLabels, bestTime,
+          verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
       bestPerm = perm;
       printf("# original sequence: %ld\n", bestTime);
 
@@ -799,7 +835,8 @@ class ajs {
       {
         Line& curLine = func[*i];
         int depCount = 0;
-        for (vector<int>::const_iterator ci = curLine.getDependencies().begin(); ci != curLine.getDependencies().end(); ++ci)
+        for (vector<int>::const_iterator ci = curLine.getDependencies().begin();
+            ci != curLine.getDependencies().end(); ++ci)
         {
           if (*ci >= from && *ci <= to)
             depCount++;
@@ -854,8 +891,8 @@ class ajs {
             if (verbose)
               printf("\n# timing sequence:\n");
             // time this permutation
-            uint64_t newTime = timeFunc(func, perm, a, runtime, numLabels, bestTime, verbose, overhead,
-                arg1, arg2, arg3, arg4, arg5, arg6);
+            uint64_t newTime = timeFunc(func, perm, a, runtime, numLabels,
+                bestTime, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
             if (bestTime == 0 || newTime < bestTime)
             {
               printf("# better sequence found: %ld", newTime);
@@ -874,7 +911,8 @@ class ajs {
           // update dependencies
           for (int i = to - from; i >= 0; i--)
           {
-            for (list<int>::iterator ci = lines[i].begin(); ci != lines[i].end(); ++ci)
+            for (list<int>::iterator ci = lines[i].begin();
+                ci != lines[i].end(); ++ci)
             {
               Line& freeLine = func[*ci];
               if (find(freeLine.getDependencies().begin(), freeLine.getDependencies().end(), *cur) != freeLine.getDependencies().end())
@@ -898,7 +936,10 @@ class ajs {
       return bestTime;
     }
 
-    static uint64_t superOptimise(list<int>& bestPerm, vector<Line>& func, X86Assembler& a, JitRuntime& runtime, const int numLabels, const int from, const int to, const uint64_t limbs, const int verbose, string signature, int nopLine = -1)
+    static uint64_t superOptimise(list<int>& bestPerm, vector<Line>& func,
+        X86Assembler& a, JitRuntime& runtime, Logger& logger, const int
+        numLabels, const int from, const int to, const uint64_t limbs, const
+        int verbose, string signature, int nopLine = -1)
     {
       uint64_t bestTime = 0, overhead = 0;
       uint64_t *mpn1, *mpn2, *mpn3, *mpn4;
@@ -910,15 +951,17 @@ class ajs {
       mpn3 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       mpn4 = (uint64_t*)malloc(2 * limbs * sizeof(uint64_t));
 
-      getArgs(mpn1, mpn2, mpn3, mpn4, limbs, signature, arg1, arg2, arg3, arg4, arg5, arg6);
+      getArgs(mpn1, mpn2, mpn3, mpn4, limbs, signature, arg1, arg2, arg3, arg4,
+          arg5, arg6);
 
       Line ret(X86Util::getInstIdByName("ret"));
       vector<Line> emptyFunc(1, ret);
       list<int> emptyPerm(1, 0);
-      overhead = timeFunc(emptyFunc, emptyPerm, a, runtime, numLabels, bestTime, verbose, overhead,
-          arg1, arg2, arg3, arg4, arg5, arg6);
+      overhead = timeFunc(emptyFunc, emptyPerm, a, runtime, numLabels,
+          bestTime, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
 
-      bestTime = tryPerms(bestPerm, func, a, runtime, numLabels, from, to, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
+      bestTime = tryPerms(bestPerm, func, a, runtime, logger, numLabels, from,
+          to, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
 
       list<int> nopPerm;
       if (nopLine != -1)
@@ -936,7 +979,9 @@ class ajs {
             addDeps(pos, func);
           }
 
-          uint64_t bestNopTime = tryPerms(nopPerm, func, a, runtime, numLabels, from, to, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
+          uint64_t bestNopTime = tryPerms(nopPerm, func, a, runtime, logger,
+              numLabels, from, to, verbose, overhead, arg1, arg2, arg3, arg4,
+              arg5, arg6);
           if (bestNopTime < bestTime)
           {
             bestTime = bestNopTime;
@@ -953,7 +998,9 @@ class ajs {
       return bestTime;
     }
 
-    static int run(const char* file, int start, int end, const uint64_t limbs, const char* outFile, const int verbose, const int intelSyntax, const string signature, const int nopLine)
+    static int run(const char* file, int start, int end, const uint64_t limbs,
+        const char* outFile, const int verbose, const int intelSyntax, const
+        string signature, const int nopLine)
     {
       FileLogger logger(stdout);
       int numLabels = 0;
@@ -964,8 +1011,6 @@ class ajs {
       // Create JitRuntime and X86 Assembler/Compiler.
       JitRuntime runtime;
       X86Assembler a(&runtime);
-      if (verbose)
-        a.setLogger(&logger);
 
       // Create the functions we will work with
       vector<Line> func;
@@ -988,14 +1033,16 @@ class ajs {
       assert(end <= func.size() - 1);
       assert(start <= end);
 
-      uint64_t bestTime = superOptimise(bestPerm, func, a, runtime, numLabels, start, end, limbs, verbose, signature, nopLine);
+      uint64_t bestTime = superOptimise(bestPerm, func, a, runtime, logger,
+          numLabels, start, end, limbs, verbose, signature, nopLine);
 
       list<int>::iterator startIt = bestPerm.begin();
       advance(startIt, start);
       list<int>::iterator endIt = bestPerm.begin();
       advance(endIt, end + 1);
 
-      printf("# optimisation complete, best time of %lu for sequence:\n", bestTime);
+      printf("# optimisation complete, best time of %lu for sequence:\n",
+          bestTime);
       a.reset();
       a.setLogger(&logger);
       addFunc(func, bestPerm, a, numLabels, 1);
@@ -1026,7 +1073,8 @@ void sig_handler(int signo)
 
 int main(int argc, char* argv[])
 {
-  int c, start = 0, end = 0, limbs = 111, verbose = 0, nopLine = -1, intelSyntax = 0;
+  int c, start = 0, end = 0, limbs = 111, verbose = 0, nopLine = -1,
+      intelSyntax = 0;
   char *outFile = NULL;
   char *inFile = NULL;
   string signature = "add_n";
@@ -1102,5 +1150,6 @@ int main(int argc, char* argv[])
     printf("# source file: %s\n", inFile);
   }
 
-  return ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax, signature, nopLine);
+  return ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax,
+      signature, nopLine);
 }
