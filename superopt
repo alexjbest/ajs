@@ -10,6 +10,7 @@ The options for ajs are as follows:
 "
 
 FILE=$1
+MPIR_ROOT=../mpir
 
 if [ "$FILE" == "--help" ] || [ "$FILE" == "" ]
 then
@@ -23,13 +24,13 @@ filename="${filename%.*}"
 echo "optimising $FILE"
 if [[ $FILE == *.asm ]]
 then
-	m4 -I../mpir/mpn/ $FILE | ./ajs -o "$filename"_optimised.asm "${@:2}"
+	m4 -I$MPIR_ROOT/mpn/ $FILE | ./ajs -o "$filename"_optimised.asm "${@:2}"
 elif [[ $FILE == *.as ]]
 then
-	../mpir/yasm/yasm -e -I../mpir/ $FILE | ./ajs -i -o "$filename"_optimised.asm "${@:2}"
+	$MPIR_ROOT/yasm/yasm -e -I$MPIR_ROOT/ $FILE | ./ajs -i -o "$filename"_optimised.asm "${@:2}"
 elif [[ $FILE == *.c ]]
 then
-	gcc -S -O2 $FILE -o "$filename"_tmp.s
+	gcc -I$MPIR_ROOT/ -S -O2 $FILE -o "$filename"_tmp.s
 	./ajs "$filename"_tmp.s -o "$filename"_optimised.asm "${@:2}"
 	rm "$filename"_tmp.s
 else
