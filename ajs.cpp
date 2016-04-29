@@ -520,15 +520,17 @@ class ajs {
           }
           else // normal instruction
           {
-            if (parsed[0] == "ASM_START")
+            if (parsed[0] == "ASM_START") // TODO this probably shouldn't be in any files at all...
               break;
-            if (parsed[0] == "end")
+            if (parsed[0] == "end") // a fake instruction sometimes in nasm syntax files
               break;
             if (parsed[0] == "jrcxz" || parsed[0] == "jecxz") // add extra arg to jr/ecx instrs
             {
               parsed[1] = parsed[0].substr(1,3) + ',' + parsed[1];
               parsed[0] = "jecxz";
             }
+            if (parsed[0] == "movq")
+              parsed[0] = "mov";
             uint32_t id = X86Util::getInstIdByName(parsed[0].c_str());
             uint32_t size = 0;
             if (id == kInstIdNone)
@@ -548,7 +550,6 @@ class ajs {
 
                 case 'b':
                   id = X86Util::getInstIdByName(parsed[0].substr(0, parsed[0].size() - 1).c_str());
-                  break;
               }
             }
             parsed.erase(parsed.begin());
