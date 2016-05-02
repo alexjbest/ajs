@@ -11,7 +11,7 @@ do
 		do
 			if [ -a $f ]
 			then
-				./superopt $f -is $sig
+				./superopt $f -s $sig
 			fi
 		done
 		for f in $LOCATION/$file.asm
