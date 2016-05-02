@@ -37,6 +37,8 @@ class ajs {
 
     static int64_t getVal(string val) {
       val = trim(val);
+      if (val.substr(1, 4) == "word")
+        val = val.substr(5);
       size_t loc = val.find_first_of("+-\0", 1);
       if (loc != std::string::npos)
         return getVal(val.substr(0, loc)) + getVal(val.substr(loc));
