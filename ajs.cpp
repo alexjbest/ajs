@@ -679,10 +679,12 @@ class ajs {
           end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
           curTotal += end - start - overhead;
 
-          if (target != 0 && k >= loopsize >> 1 && total > (target + 20) * (k + 1))
+          if (0 && target != 0 && k >= loopsize >> 1 && curTotal > (target + 20) * (k + 1))
           {
             if (verbose)
               printf("# cannot hit target, aborting\n");
+            if (total != -1)
+              curTotal = total + 1;
             break;
           }
         }
@@ -832,7 +834,7 @@ class ajs {
       if (verbose)
         a.setLogger(&logger);
 
-      uint64_t bestTime = timeFunc(func, perm, a, runtime, numLabels, bestTime,
+      uint64_t bestTime = timeFunc(func, perm, a, runtime, numLabels, 0,
           verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
       bestPerm = perm;
       printf("# original sequence: %ld\n", bestTime);
