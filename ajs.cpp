@@ -784,13 +784,13 @@ class ajs {
         arg4 = reinterpret_cast<uint64_t>(mpn4);
         arg5 = reinterpret_cast<uint64_t>(limbs);
       }
-      else if (signature == "addlsh_n") // TODO
+      else if (signature == "addlsh_n")
       {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = reinterpret_cast<uint64_t>(mpn3);
-        arg4 = reinterpret_cast<uint64_t>(mpn4);
-        arg5 = reinterpret_cast<uint64_t>(limbs);
+        arg4 = reinterpret_cast<uint64_t>(limbs);
+        arg5 = reinterpret_cast<uint64_t>((uint64_t)31);
       }
       else if (signature == "mul_basecase")
       {
