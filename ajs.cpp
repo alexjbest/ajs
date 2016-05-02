@@ -539,7 +539,7 @@ class ajs {
               parsed[1] = parsed[0].substr(1,3) + ',' + parsed[1];
               parsed[0] = "jecxz";
             }
-            if (parsed[0] == "movq")
+            if (0 && parsed[0] == "movq")
               parsed[0] = "mov";
             uint32_t id = X86Util::getInstIdByName(parsed[0].c_str());
             uint32_t size = 0;
