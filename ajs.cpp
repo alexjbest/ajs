@@ -1068,6 +1068,8 @@ class ajs {
         a.setLogger(&logger);
         FILE* of = fopen(outFile, "w");
         logger.setStream(of);
+        logger.logFormat(Logger::kStyleComment, "# This file was produced by ajs, the MPIR assembly superoptimiser\n", bestTime, limbs);
+        logger.logFormat(Logger::kStyleComment, "# %lu cycles/%lu limbs\n", bestTime, limbs);
         addFunc(func, bestPerm, a, numLabels, 1);
         fclose(of);
       }
