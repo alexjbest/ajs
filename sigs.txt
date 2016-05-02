@@ -1,0 +1,6 @@
+double
+copyi
+add_n
+addadd_n
+addlsh_n
+mul_basecase

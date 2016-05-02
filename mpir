@@ -1,0 +1,25 @@
+#!/bin/bash
+
+set -e
+
+LOCATION=../mpir/mpn
+while IFS= read -r sig
+do
+	while IFS= read -r file
+	do
+		for f in $LOCATION/$file.as
+		do
+			if [ -a $f ]
+			then
+				./superopt $f -is $sig
+			fi
+		done
+		for f in $LOCATION/$file.asm
+		do
+			if [ -a $f ]
+			then
+				./superopt $f -s $sig
+			fi
+		done
+	done < "$sig.txt"
+done < "sigs.txt"
