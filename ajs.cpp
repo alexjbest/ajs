@@ -34,6 +34,9 @@ class ajs {
 
   public:
     static int exiting;
+    static JitRuntime runtime;
+    static X86Assembler assembler;
+    static FileLogger logger;
 
     static int64_t getVal(string val) {
       val = trim(val);
@@ -202,8 +205,8 @@ class ajs {
       }
     }
 
-    static Operand getOpFromStr(string op, X86Assembler& a,
-        map<string, Label>& labels, uint32_t size, int intelSyntax)
+    static Operand getOpFromStr(string op, map<string, Label>& labels,
+        uint32_t size, int intelSyntax)
     {
       // bracket style depends on syntax used
       const char openBracket = intelSyntax ? '[' : '(';
@@ -221,7 +224,7 @@ class ajs {
         if (op.length() > 0)
         {
           if (labels.count(op) == 0)
-            labels[op] = a.newLabel();
+            labels[op] = assembler.newLabel();
           return labels[op];
         }
       }
@@ -240,7 +243,7 @@ class ajs {
           if (op.length() > 0) // No, it's a label!
           {
             if (labels.count(op) == 0)
-              labels[op] = a.newLabel();
+              labels[op] = assembler.newLabel();
             return labels[op];
           }
         }
@@ -433,7 +436,7 @@ class ajs {
       }
     }
 
-    static int loadFuncFromFile(vector<Line>& func, X86Assembler& a, const
+    static int loadFuncFromFile(vector<Line>& func, const
         char* file, const int intelSyntax)
     {
       map<string, Label> labels;
@@ -451,7 +454,7 @@ class ajs {
         return -1;
       }
 
-      a.reset();
+      assembler.reset();
 
       // set which chars define which line types based on intelSyntax flag
       const char commentChar   = intelSyntax ? ';' : '#';
@@ -487,7 +490,7 @@ class ajs {
           {
             string label = parsed[0].substr(0, parsed[0].size() - 1);
             if (labels.count(label) == 0)
-              labels[label] = a.newLabel();
+              labels[label] = assembler.newLabel();
 
             newLine.setLabel(labels[label].getId());
 
@@ -599,7 +602,7 @@ class ajs {
                 reverse(args.begin(), args.end());
 
               for (int i = 0; i < args.size(); i++)
-                newLine.setOp(i, getOpFromStr(args[i], a, labels, size, intelSyntax));
+                newLine.setOp(i, getOpFromStr(args[i], labels, size, intelSyntax));
             }
 
             addRegsRead(newLine);
@@ -624,7 +627,7 @@ class ajs {
         }
       }
 
-      a.reset();
+      assembler.reset();
 
       for (vector<Line>::iterator i = func.begin(); i != func.end(); ++i)
         addDeps(i, func);
@@ -632,7 +635,7 @@ class ajs {
       return labels.size();
     }
 
-    static uint64_t callFunc(void* funcPtr, JitRuntime& runtime, uint64_t target,
+    static uint64_t callFunc(void* funcPtr, uint64_t target,
         const int verbose, const uint64_t overhead, uint64_t arg1,
         uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t
         arg6)
@@ -698,36 +701,36 @@ class ajs {
       if (verbose)
         printf("# total time: %ld\n", total);
 
-      runtime.release((void*)callableFunc);
+      ajs::runtime.release((void*)callableFunc);
 
       return total;
     }
 
-    static void addFunc(vector<Line>& func, list<int>& perm, X86Assembler& a,
-        int numLabels, int verbose)
+    static void addFunc(vector<Line>& func, list<int>& perm, int numLabels,
+        int verbose)
     {
       Label labels[numLabels];
       for (int i = 0; i < numLabels; i++)
-        labels[i] = a.newLabel();
+        labels[i] = assembler.newLabel();
       for (list<int>::const_iterator ci = perm.begin(); ci != perm.end(); ++ci)
       {
         Line& curLine = func[*ci];
         if (curLine.isAlign()) {
-          a.align(kAlignCode, curLine.getAlign());
+          assembler.align(kAlignCode, curLine.getAlign());
         }
         if (curLine.isLabel()) {
-          a.bind(labels[curLine.getLabel()]);
+          assembler.bind(labels[curLine.getLabel()]);
         }
         if (curLine.isByte()) {
-          uint8_t* cursor = a.getCursor();
-          if ((size_t)(a._end - cursor) < 16)
+          uint8_t* cursor = assembler.getCursor();
+          if ((size_t)(assembler._end - cursor) < 16)
           {
-            a._grow(16);
+            assembler._grow(16);
           }
           cursor[0] = curLine.getByte();
           cursor += 1;
           if (verbose)
-            a.getLogger()->logFormat(Logger::kStyleDefault,"\t.byte\t%d\n", curLine.getByte());
+            assembler.getLogger()->logFormat(Logger::kStyleDefault,"\t.byte\t%d\n", curLine.getByte());
         }
         if (!curLine.isInstruction())
           continue;
@@ -737,24 +740,24 @@ class ajs {
             curLine.setOp(i, labels[curLine.getOp(i).getId()]);
           }
         }
-        a.emit(curLine.getInstruction(), curLine.getOp(0), curLine.getOp(1),
+        assembler.emit(curLine.getInstruction(), curLine.getOp(0), curLine.getOp(1),
             curLine.getOp(2));
       }
     }
 
     // makes a function with assembler then times the generated function with callFunc.
-    static uint64_t timeFunc(vector<Line>& func, list<int>& perm, X86Assembler& a,
-        JitRuntime& runtime, int numLabels, uint64_t target,
-        const int verbose, uint64_t overhead, uint64_t arg1, uint64_t arg2,
-        uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
+    static uint64_t timeFunc(vector<Line>& func, list<int>& perm,
+        int numLabels, uint64_t target, const int verbose, uint64_t overhead,
+        uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4,
+        uint64_t arg5, uint64_t arg6)
     {
-      a.reset();
+      assembler.reset();
 
-      addFunc(func, perm, a, numLabels, verbose);
+      addFunc(func, perm, numLabels, verbose);
 
-      void* funcPtr = a.make();
+      void* funcPtr = assembler.make();
 
-      return callFunc(funcPtr, runtime, target, verbose, overhead,
+      return callFunc(funcPtr, target, verbose, overhead,
           arg1, arg2, arg3, arg4, arg5, arg6);
     }
 
@@ -812,7 +815,7 @@ class ajs {
     }
 
     static uint64_t tryPerms(list<int>& bestPerm, vector<Line>& func,
-        X86Assembler& a, JitRuntime& runtime, Logger& logger, const int numLabels,
+         const int numLabels,
         const int from, const int to, const int verbose, const uint64_t overhead,
         uint64_t arg1, uint64_t arg2, uint64_t arg3,
         uint64_t arg4, uint64_t arg5, uint64_t arg6)
@@ -827,14 +830,14 @@ class ajs {
 
       // 'warm up' the processor?
       for (int i = 0; i < 10000; i++)
-        timeFunc(func, perm, a, runtime, numLabels, 0, 0, overhead, arg1, arg2,
+        timeFunc(func, perm, numLabels, 0, 0, overhead, arg1, arg2,
             arg3, arg4, arg5, arg6);
 
       // set logger if we are in verbose mode
       if (verbose)
-        a.setLogger(&logger);
+        assembler.setLogger(&logger);
 
-      uint64_t bestTime = timeFunc(func, perm, a, runtime, numLabels, 0,
+      uint64_t bestTime = timeFunc(func, perm, numLabels, 0,
           verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
       bestPerm = perm;
       printf("# original sequence: %ld\n", bestTime);
@@ -904,7 +907,7 @@ class ajs {
             if (verbose)
               printf("\n# timing sequence:\n");
             // time this permutation
-            uint64_t newTime = timeFunc(func, perm, a, runtime, numLabels,
+            uint64_t newTime = timeFunc(func, perm, numLabels,
                 bestTime, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
             if (bestTime == 0 || newTime < bestTime)
             {
@@ -950,7 +953,7 @@ class ajs {
     }
 
     static uint64_t superOptimise(list<int>& bestPerm, vector<Line>& func,
-        X86Assembler& a, JitRuntime& runtime, Logger& logger, const int
+         const int
         numLabels, const int from, const int to, const uint64_t limbs, const
         int verbose, string signature, int nopLine = -1)
     {
@@ -970,10 +973,10 @@ class ajs {
       Line ret(X86Util::getInstIdByName("ret"));
       vector<Line> emptyFunc(1, ret);
       list<int> emptyPerm(1, 0);
-      overhead = timeFunc(emptyFunc, emptyPerm, a, runtime, numLabels,
+      overhead = timeFunc(emptyFunc, emptyPerm, numLabels,
           bestTime, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
 
-      bestTime = tryPerms(bestPerm, func, a, runtime, logger, numLabels, from,
+      bestTime = tryPerms(bestPerm, func, numLabels, from,
           to, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
 
       list<int> nopPerm;
@@ -992,7 +995,7 @@ class ajs {
             addDeps(pos, func);
           }
 
-          uint64_t bestNopTime = tryPerms(nopPerm, func, a, runtime, logger,
+          uint64_t bestNopTime = tryPerms(nopPerm, func,
               numLabels, from, to, verbose, overhead, arg1, arg2, arg3, arg4,
               arg5, arg6);
           if (bestNopTime < bestTime)
@@ -1015,21 +1018,16 @@ class ajs {
         const char* outFile, const int verbose, const int intelSyntax, const
         string signature, const int nopLine)
     {
-      FileLogger logger(stdout);
       int numLabels = 0;
 
       logger.setIndentation("\t");
       logger.addOptions(Logger::kOptionGASFormat);
 
-      // Create JitRuntime and X86 Assembler/Compiler.
-      JitRuntime runtime;
-      X86Assembler a(&runtime);
-
       // Create the functions we will work with
       vector<Line> func;
       list<int> bestPerm;
       // load original from the file given in arguments
-      numLabels = loadFuncFromFile(func, a, file, intelSyntax);
+      numLabels = loadFuncFromFile(func, file, intelSyntax);
 
       // returned if something went wrong when loading
       if (numLabels == -1)
@@ -1046,7 +1044,7 @@ class ajs {
       assert(end <= func.size() - 1);
       assert(start <= end);
 
-      uint64_t bestTime = superOptimise(bestPerm, func, a, runtime, logger,
+      uint64_t bestTime = superOptimise(bestPerm, func,
           numLabels, start, end, limbs, verbose, signature, nopLine);
 
       list<int>::iterator startIt = bestPerm.begin();
@@ -1056,21 +1054,21 @@ class ajs {
 
       printf("# optimisation complete, best time of %lu for sequence:\n",
           bestTime);
-      a.reset();
-      a.setLogger(&logger);
-      addFunc(func, bestPerm, a, numLabels, 1);
+      assembler.reset();
+      assembler.setLogger(&logger);
+      addFunc(func, bestPerm, numLabels, 1);
       printf("\n\n");
 
       // write output using asmjit's logger
       if (outFile != NULL)
       {
-        a.reset();
-        a.setLogger(&logger);
+        assembler.reset();
+        assembler.setLogger(&logger);
         FILE* of = fopen(outFile, "w");
         logger.setStream(of);
         logger.logFormat(Logger::kStyleComment, "# This file was produced by ajs, the MPIR assembly superoptimiser\n", bestTime, limbs);
         logger.logFormat(Logger::kStyleComment, "# %lu cycles/%lu limbs\n", bestTime, limbs);
-        addFunc(func, bestPerm, a, numLabels, 1);
+        addFunc(func, bestPerm, numLabels, 1);
         fclose(of);
       }
 
@@ -1079,6 +1077,10 @@ class ajs {
 };
 
 int ajs::exiting = 0;
+// Create JitRuntime and X86 Assembler/Compiler.
+JitRuntime ajs::runtime;
+X86Assembler ajs::assembler(&runtime);
+FileLogger ajs::logger(stdout);
 
 void sig_handler(int signo)
 {
