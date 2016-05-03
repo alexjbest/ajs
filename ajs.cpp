@@ -1106,6 +1106,7 @@ void display_usage()
 "                            copyi:        mpn, mpn, length                   \n"
 "                            add_n:        mpn, mpn, mpn, length              \n"
 "                            addadd_n:     mpn, mpn, mpn, mpn, length         \n"
+"                            addlsh_n:     mpn, mpn, mpn, length, shift (31)  \n"
 "                            mul_basecase: mpn, mpn, length, mpn, length      \n"
 "                          If no signature is specified add_n is used         \n"
 "  --verbose               Print out all sequences tried                      \n"
