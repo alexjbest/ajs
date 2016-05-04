@@ -3,7 +3,7 @@ CC = g++
 ODIR = obj
 SDIR = src
 INC = -Iasmjit -I.
-CFLAGS = -g -Wno-attributes -O2 --std=c++11
+CFLAGS = -g -Wno-attributes -O2 --std=c++0x
 
 ASMJITOBJS = asmjit/base/assembler.o asmjit/base/compiler.o \
              asmjit/base/compilercontext.o asmjit/base/constpool.o \
