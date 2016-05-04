@@ -774,13 +774,13 @@ class ajs {
       if (signature == "double")
       {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
-        arg2 = reinterpret_cast<uint64_t>(limbs);
+        arg2 = limbs;
       }
       else if (signature == "copyi")
       {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = reinterpret_cast<uint64_t>(mpn2);
-        arg3 = reinterpret_cast<uint64_t>(limbs);
+        arg3 = limbs;
       }
       else if (signature == "addadd_n")
       {
@@ -788,23 +788,23 @@ class ajs {
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = reinterpret_cast<uint64_t>(mpn3);
         arg4 = reinterpret_cast<uint64_t>(mpn4);
-        arg5 = reinterpret_cast<uint64_t>(limbs);
+        arg5 = limbs;
       }
       else if (signature == "addlsh_n")
       {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = reinterpret_cast<uint64_t>(mpn3);
-        arg4 = reinterpret_cast<uint64_t>(limbs);
-        arg5 = reinterpret_cast<uint64_t>((uint64_t)31);
+        arg4 = limbs;
+        arg5 = (uint64_t)31;
       }
       else if (signature == "mul_basecase")
       {
         arg1 = reinterpret_cast<uint64_t>(mpn4);
         arg2 = reinterpret_cast<uint64_t>(mpn1);
-        arg3 = reinterpret_cast<uint64_t>(limbs);
+        arg3 = limbs;
         arg4 = reinterpret_cast<uint64_t>(mpn2);
-        arg5 = reinterpret_cast<uint64_t>(limbs);
+        arg5 = limbs;
       }
       else
       {
@@ -813,7 +813,7 @@ class ajs {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = reinterpret_cast<uint64_t>(mpn3);
-        arg4 = reinterpret_cast<uint64_t>(limbs);
+        arg4 = limbs;
       }
     }
 
