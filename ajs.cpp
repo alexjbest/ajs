@@ -776,11 +776,24 @@ class ajs {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = limbs;
       }
+      else if (signature == "store")
+      {
+        arg1 = reinterpret_cast<uint64_t>(mpn1);
+        arg2 = limbs;
+	arg3 = (uint64_t) 123124412;
+      }
       else if (signature == "copyi")
       {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = limbs;
+      }
+      else if (signature == "lshift")
+      {
+        arg1 = reinterpret_cast<uint64_t>(mpn1);
+        arg2 = reinterpret_cast<uint64_t>(mpn2);
+        arg3 = limbs;
+        arg4 = (uint64_t)31;
       }
       else if (signature == "addadd_n")
       {
@@ -1116,7 +1129,9 @@ void display_usage()
 "  --signature <signature> Give the function inputs of the format <signature>,\n"
 "                          where the possible signatures are as follows       \n"
 "                            double:       mpn, length                        \n"
+"                            store:        mpn, length, value (123124412)     \n"
 "                            copyi:        mpn, mpn, length                   \n"
+"                            lshift:       mpn, mpn, length, shift (31)       \n"
 "                            add_n:        mpn, mpn, mpn, length              \n"
 "                            addadd_n:     mpn, mpn, mpn, mpn, length         \n"
 "                            addlsh_n:     mpn, mpn, mpn, length, shift (31)  \n"
