@@ -761,8 +761,11 @@ class ajs {
           arg1, arg2, arg3, arg4, arg5, arg6);
     }
 
-    // Linux call order:
-    // RDI, RSI, RDX, RCX, R8, R9
+    // sets arg1-6 based on signature using: mpn1-3 (of length limbs),
+    // mpn4 (of length 2*limbs), and limbs itself
+    // base on Linux/System V AMD64 ABI call order:
+    // arg1, arg2, arg3, arg4, arg5, arg6
+    //  RDI,  RSI,  RDX,  RCX,   R8,   R9
     static void getArgs(uint64_t *mpn1, uint64_t *mpn2, uint64_t *mpn3,
         uint64_t *mpn4, const uint64_t limbs, string signature, uint64_t& arg1,
         uint64_t& arg2, uint64_t& arg3, uint64_t& arg4, uint64_t& arg5,
@@ -965,6 +968,7 @@ class ajs {
       mpn1 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       mpn2 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       mpn3 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
+      // double size mpn, e.g. for output of mpn_mul
       mpn4 = (uint64_t*)malloc(2 * limbs * sizeof(uint64_t));
 
       getArgs(mpn1, mpn2, mpn3, mpn4, limbs, signature, arg1, arg2, arg3, arg4,
