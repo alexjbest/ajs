@@ -838,9 +838,8 @@ class ajs {
     }
 
     static uint64_t tryPerms(list<int>& bestPerm, vector<Line>& func,
-         const int numLabels,
-        const int from, const int to, const int verbose, const uint64_t overhead,
-        uint64_t arg1, uint64_t arg2, uint64_t arg3,
+        const int numLabels, const int from, const int to, const int verbose,
+        const uint64_t overhead, uint64_t arg1, uint64_t arg2, uint64_t arg3,
         uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
       int count = 0, level = 0;
@@ -852,7 +851,7 @@ class ajs {
         perm.insert(perm.end(), i);
 
       // 'warm up' the processor?
-      for (int i = 0; i < 10000; i++)
+      for (int i = 0; i < 10000 && !exiting; i++)
         timeFunc(func, perm, numLabels, 0, 0, overhead, arg1, arg2,
             arg3, arg4, arg5, arg6);
 
