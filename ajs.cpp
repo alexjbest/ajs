@@ -798,6 +798,13 @@ class ajs {
         arg4 = limbs;
         arg5 = (uint64_t)31;
       }
+      else if (signature == "addmul_1")
+      {
+        arg1 = reinterpret_cast<uint64_t>(mpn1);
+        arg2 = reinterpret_cast<uint64_t>(mpn2);
+        arg3 = limbs;
+        arg4 = (uint64_t)311;
+      }
       else if (signature == "mul_basecase")
       {
         arg1 = reinterpret_cast<uint64_t>(mpn4);
@@ -1113,6 +1120,7 @@ void display_usage()
 "                            add_n:        mpn, mpn, mpn, length              \n"
 "                            addadd_n:     mpn, mpn, mpn, mpn, length         \n"
 "                            addlsh_n:     mpn, mpn, mpn, length, shift (31)  \n"
+"                            addmul_1:     mpn, mpn, length, multiplier (311) \n"
 "                            mul_basecase: mpn, mpn, length, mpn, length      \n"
 "                          If no signature is specified add_n is used         \n"
 "  --verbose               Print out all sequences tried                      \n"
