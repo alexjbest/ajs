@@ -1,0 +1,2 @@
+addmul_1
+mul_1

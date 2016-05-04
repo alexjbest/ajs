@@ -1,0 +1,5 @@
+com_n
+copyi
+copyd
+lshift1
+rshift1

@@ -1,6 +1,8 @@
 double
-copyi
+com_n
+lshift
 add_n
 addadd_n
 addlsh_n
+addmul_1
 mul_basecase

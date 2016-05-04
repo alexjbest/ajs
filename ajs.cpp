@@ -782,7 +782,7 @@ class ajs {
         arg2 = limbs;
 	arg3 = (uint64_t) 123124412;
       }
-      else if (signature == "copyi")
+      else if (signature == "com_n")
       {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = reinterpret_cast<uint64_t>(mpn2);
@@ -1130,7 +1130,7 @@ void display_usage()
 "                          where the possible signatures are as follows       \n"
 "                            double:       mpn, length                        \n"
 "                            store:        mpn, length, value (123124412)     \n"
-"                            copyi:        mpn, mpn, length                   \n"
+"                            com_n:        mpn, mpn, length                   \n"
 "                            lshift:       mpn, mpn, length, shift (31)       \n"
 "                            add_n:        mpn, mpn, mpn, length              \n"
 "                            addadd_n:     mpn, mpn, mpn, mpn, length         \n"
