@@ -720,6 +720,7 @@ class ajs {
         }
         if (curLine.isLabel()) {
           assembler.bind(labels[curLine.getLabel()]);
+          numLabels--;
         }
         if (curLine.isByte()) {
           uint8_t* cursor = assembler.getCursor();
@@ -742,6 +743,11 @@ class ajs {
         }
         assembler.emit(curLine.getInstruction(), curLine.getOp(0), curLine.getOp(1),
             curLine.getOp(2));
+      }
+      if (numLabels > 0)
+      {
+        printf("error: %d label(s) not bound, are all label names correct?\n", numLabels);
+        exit(EXIT_FAILURE);
       }
     }
 
@@ -996,7 +1002,7 @@ class ajs {
       Line ret(X86Util::getInstIdByName("ret"));
       vector<Line> emptyFunc(1, ret);
       list<int> emptyPerm(1, 0);
-      overhead = timeFunc(emptyFunc, emptyPerm, numLabels,
+      overhead = timeFunc(emptyFunc, emptyPerm, 0,
           bestTime, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
 
       bestTime = tryPerms(bestPerm, func, numLabels, from,
