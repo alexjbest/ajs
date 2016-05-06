@@ -20,7 +20,7 @@ ASMJITOBJS = asmjit/base/assembler.o asmjit/base/compiler.o \
 
 AJSOBJS = line.o
 
-all: $(LIBASMJIT) ajs.cpp
+all: $(LIBASMJIT) $(AJSOBJS) ajs.cpp
 	$(CC) -o ajs ajs.cpp $(AJSOBJS) -L. -lasmjit $(INC) $(CFLAGS)
 
 %.o: %.cpp
@@ -32,7 +32,7 @@ $(LIBASMJIT): $(ASMJITOBJS)
 .PHONY: clean, test
 
 clean:
-	rm -f $(ASMJITOBJS) $(LIBASMJIT) ajs
+	rm -f $(ASMJITOBJS) $(LIBASMJIT) $(AJSOBJS) ajs
 
 check: all
 	./test
