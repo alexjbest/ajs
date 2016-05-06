@@ -1064,8 +1064,11 @@ class ajs {
         end--;
       else
         end = func.size() - 1;
-      assert(end <= func.size() - 1);
-      assert(start <= end);
+      if ((end > func.size() - 1) || (start > end))
+      {
+        printf("error: invalid range (function is %lu lines long)\n", func.size());
+        exit(EXIT_FAILURE);
+      }
 
       uint64_t bestTime = superOptimise(bestPerm, func,
           numLabels, start, end, limbs, verbose, signature, nopLine);
