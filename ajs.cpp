@@ -543,8 +543,17 @@ class ajs {
           {
             if (parsed[0] == "ASM_START") // TODO this probably shouldn't be in any files at all...
               break;
-            if (parsed[0] == "end") // a fake instruction sometimes in nasm syntax files
+            if (parsed[0] == "end") // a fake instruction sometimes in nasm syntax files, ignored
               break;
+
+            if (parsed[0].substr(0, 8) == "prefetch") // prefetch instructions should be given extra arguments for asmjit
+            {
+              char c = parsed[0].at(9) + 1;
+              if (c == 't' + 1) // prefetchnta
+                c = '0';
+              parsed[1] = (string("$") + c + ',') + parsed[1];
+              parsed[0] = "prefetch";
+            }
             if (parsed[0] == "jrcxz" || parsed[0] == "jecxz") // add extra arg to jr/ecx instrs
             {
               parsed[1] = parsed[0].substr(1,3) + ',' + parsed[1];
