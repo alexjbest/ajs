@@ -365,8 +365,11 @@ class ajs {
           {
             const X86InstInfo& info = X86Util::getInstInfo(l.getInstruction());
 
-            // Mov instruction does not read first op
+            // Mov instructions do not read first op
             if (info.getExtendedInfo().isMove())
+              continue;
+            // Pop does not read first op
+            if (l.getInstruction() == X86Util::getInstIdByName("pop"))
               continue;
           }
           l.addRegIn(*static_cast<const X86Reg*>(l.getOpPtr(i)));
@@ -399,7 +402,14 @@ class ajs {
       if (!l.isInstruction())
         return;
       if (l.getOp(0).isReg())
-        l.addRegOut(*static_cast<const X86Reg*>(l.getOpPtr(0)));
+      {
+        int opWritten = 1;
+        // many instructions write to their first operand, but some do not
+        if (l.getInstruction() == X86Util::getInstIdByName("push"))
+          opWritten = 0;
+        if (opWritten)
+          l.addRegOut(*static_cast<const X86Reg*>(l.getOpPtr(0)));
+      }
       if (l.getInstruction() == X86Util::getInstIdByName("lahf"))
         l.addRegOut(rax);
       if (l.getInstruction() == X86Util::getInstIdByName("mul")) {
