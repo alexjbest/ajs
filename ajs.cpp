@@ -347,6 +347,10 @@ class ajs {
     {
       if (!l.isInstruction())
         return;
+      if (l.getInstruction() == X86Util::getInstIdByName("mul"))
+        l.addRegIn(rax);
+      if (l.getInstruction() == X86Util::getInstIdByName("mulx"))
+        l.addRegIn(rdx);
       if (l.getInstruction() == X86Util::getInstIdByName("sahf"))
         l.addRegIn(rax);
       if (l.getInstruction() == X86Util::getInstIdByName("pop"))
@@ -398,6 +402,10 @@ class ajs {
         l.addRegOut(*static_cast<const X86Reg*>(l.getOpPtr(0)));
       if (l.getInstruction() == X86Util::getInstIdByName("lahf"))
         l.addRegOut(rax);
+      if (l.getInstruction() == X86Util::getInstIdByName("mul")) {
+        l.addRegOut(rax);
+        l.addRegOut(rdx);
+      }
       if (l.getInstruction() == X86Util::getInstIdByName("pop"))
         l.addRegOut(rsp);
       if (l.getInstruction() == X86Util::getInstIdByName("push"))
