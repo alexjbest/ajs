@@ -305,7 +305,7 @@ class ajs {
         return true;
 
       // if a sets flags read by b there is a dependency
-      if (ainfo.getEFlagsOut() & binfo.getEFlagsOut())
+      if (ainfo.getEFlagsOut() & binfo.getEFlagsIn())
         return true;
 
       vector<X86Reg> in;
