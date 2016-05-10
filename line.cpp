@@ -93,10 +93,16 @@ void Line::setOp(int i, asmjit::Operand op) {
 }
 
 void Line::addRegIn(asmjit::X86Reg reg) {
+  // ensure Gp registers are full size
+  if (reg.isGp())
+    reg = asmjit::X86GpReg(asmjit::kX86RegTypeGpq, reg.getRegIndex(), 8);
   regsIn.push_back(reg);
 }
 
 void Line::addRegOut(asmjit::X86Reg reg) {
+  // ensure Gp registers are full size
+  if (reg.isGp())
+    reg = asmjit::X86GpReg(asmjit::kX86RegTypeGpq, reg.getRegIndex(), 8);
   regsOut.push_back(reg);
 }
 
