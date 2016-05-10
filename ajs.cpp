@@ -669,7 +669,7 @@ class ajs {
     {
       uint32_t cycles_high, cycles_high1, cycles_low, cycles_low1;
       uint64_t start, end, total;
-      const int loopsize = 10, trials = 5;
+      const int loopsize = 2, trials = 25;
       volatile int k = 0;
 
       // In order to run 'funcPtr' it has to be casted to the desired type.
@@ -813,7 +813,7 @@ class ajs {
       {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = limbs;
-	arg3 = (uint64_t) 123124412;
+        arg3 = (uint64_t) 123124412;
       }
       else if (signature == "com_n")
       {
@@ -1070,9 +1070,36 @@ class ajs {
       return bestTime;
     }
 
+    // Gets the start and end index of the ith loop of func
+    static void getLoopRange(int& start, int& end, int i, vector<Line> func)
+    {
+      end = 0;
+      for (vector<Line>::const_iterator ci = func.begin(); ci != func.end();
+          ++ci, end++) {
+        if (ci->isInstruction()) {
+          const X86InstInfo& info = X86Util::getInstInfo(ci->getInstruction());
+
+          if (info.getExtendedInfo().isFlow()) {
+            if (ci->getOp(0).isLabel()) {
+              start = 1;
+              for (vector<Line>::const_iterator ci2 = func.begin(); ci2 != ci; ++ci2, start++) {
+                if (ci2->isLabel() && ci2->getLabel() == ci->getOp(0).getId())
+                {
+                  i--;
+                  if (i == 0)
+                    return;
+                }
+              }
+            }
+          }
+        }
+      }
+      exit(EXIT_FAILURE);
+    }
+
     static int run(const char* file, int start, int end, const uint64_t limbs,
         const char* outFile, const int verbose, const int intelSyntax, const
-        string signature, const int nopLine)
+        string signature, const int nopLine, const int loop)
     {
       int numLabels = 0;
 
@@ -1097,6 +1124,10 @@ class ajs {
         end--;
       else
         end = func.size() - 1;
+
+      if (loop)
+        getLoopRange(start, end, loop, func);
+
       if ((end > func.size() - 1) || (start > end))
       {
         printf("error: invalid range (function is %lu lines long)\n", func.size());
@@ -1157,6 +1188,7 @@ void display_usage()
 "  --help                  Display this message                               \n"
 "  --intel                 Parse input with Intel/YASM parser                 \n"
 "  --limbs <number>        Use mpns with <number> limbs when optimising       \n"
+"  --loop  <number>        Optimise loop <number> only (overrides range)      \n"
 "  --nop <number>          Additionally try adding nops at line <number>      \n"
 "  --out <file>            Write the output to <file> as well as stdout       \n"
 "  --range <start>-<end>   Only superoptimise the lines <start> to            \n"
@@ -1197,7 +1229,7 @@ void display_usage()
 int main(int argc, char* argv[])
 {
   int c, start = 0, end = 0, limbs = 111, verbose = 0, nopLine = -1,
-      intelSyntax = 0;
+      intelSyntax = 0, loop = 0;
   char *outFile = NULL;
   char *inFile = NULL;
   string signature = "add_n";
@@ -1213,6 +1245,7 @@ int main(int argc, char* argv[])
     {"help",      no_argument,       0, 'h'},
     {"intel",     no_argument,       0, 'i'},
     {"limbs",     required_argument, 0, 'l'},
+    {"loop",      required_argument, 0, 'p'},
     {"nop",       required_argument, 0, 'n'},
     {"out",       required_argument, 0, 'o'},
     {"range",     required_argument, 0, 'r'},
@@ -1221,7 +1254,7 @@ int main(int argc, char* argv[])
     {0,           0,                 0, 0  }
   };
 
-  while ((c = getopt_long(argc, argv, "hil:n:o:r:s:v",
+  while ((c = getopt_long(argc, argv, "hil:p:n:o:r:s:v",
         long_options, &option_index)) != -1) {
 
     switch (c) {
@@ -1244,6 +1277,13 @@ int main(int argc, char* argv[])
           limbs = 111;
         }
         printf("# optimising for %d limbs\n", limbs);
+        break;
+
+      case 'p':
+        loop = std::strtol(optarg, NULL, 10);
+        if (limbs == 0)
+          printf("# error: loop index not recognised, not using\n");
+        printf("# optimising loop %d\n", loop);
         break;
 
       case 'n':
@@ -1291,5 +1331,5 @@ int main(int argc, char* argv[])
   }
 
   return ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax,
-      signature, nopLine);
+      signature, nopLine, loop);
 }
