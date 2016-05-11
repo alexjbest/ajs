@@ -662,6 +662,11 @@ class ajs {
       return labels.size();
     }
 
+    static int comp(const void * a, const void * b)
+    {
+      return *(int*)a - *(int*)b;
+    }
+
     static uint64_t callFunc(void* funcPtr, uint64_t target,
         const int verbose, const uint64_t overhead, uint64_t arg1,
         uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t
@@ -669,7 +674,7 @@ class ajs {
     {
       uint32_t cycles_high, cycles_high1, cycles_low, cycles_low1;
       uint64_t start, end, total;
-      const int loopsize = 2, trials = 25;
+      const int loopsize = 1, trials = 60;
       volatile int k = 0;
 
       // In order to run 'funcPtr' it has to be casted to the desired type.
@@ -680,6 +685,7 @@ class ajs {
       // Using asmjit_cast is purely optional, it's basically a C-style cast
       // that tries to make it visible that a function-type is returned.
       FuncType callableFunc = asmjit_cast<FuncType>(funcPtr);
+      int times[trials];
 
       total = -1;
       for (int i = 0; i < trials; i++)
@@ -720,10 +726,12 @@ class ajs {
         }
 
         curTotal /= k;
-
-        if (total == -1 || total > curTotal)
-          total = curTotal;
+        times[i] = curTotal;
       }
+
+
+      qsort(times, trials, sizeof(int), comp);
+      total = times[trials / 5];
 
       if (verbose)
         printf("# total time: %ld\n", total);
@@ -784,14 +792,23 @@ class ajs {
         uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4,
         uint64_t arg5, uint64_t arg6)
     {
-      assembler.reset();
+      int times[2] = {-1, -1};
+      do {
+        for (int i = 0; i < 2; i++)
+        {
+          assembler.reset();
 
-      addFunc(func, perm, numLabels, verbose);
+          addFunc(func, perm, numLabels, verbose);
 
-      void* funcPtr = assembler.make();
+          void* funcPtr = assembler.make();
+          times[i] = callFunc(funcPtr, target, verbose, overhead,
+              arg1, arg2, arg3, arg4, arg5, arg6);
 
-      return callFunc(funcPtr, target, verbose, overhead,
-          arg1, arg2, arg3, arg4, arg5, arg6);
+        }
+      }
+      while (times[0] != times[1]);
+
+      return times[0];
     }
 
     // sets arg1-6 based on signature using: mpn1-3 (of length limbs),
@@ -884,7 +901,7 @@ class ajs {
         perm.insert(perm.end(), i);
 
       // 'warm up' the processor?
-      for (int i = 0; i < 10000 && !exiting; i++)
+      for (int i = 0; i < 20000 && !exiting; i++)
         timeFunc(func, perm, numLabels, 0, 0, overhead, arg1, arg2,
             arg3, arg4, arg5, arg6);
 
