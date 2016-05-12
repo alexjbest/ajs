@@ -13,9 +13,11 @@
 #include <assert.h>
 #include <asmjit/asmjit.h>
 #include <csignal>
+#include <getopt.h>
+#include <sched.h>
+#include <unistd.h>
 #include "line.h"
 #include "utils.h"
-#include <getopt.h>
 
 #define regreg(N)  if (name == #N) return N
 #define debug_print(fmt, ...) \
@@ -1208,10 +1210,11 @@ void display_usage()
 "Usage: ajs [options] [filename]                                              \n"
 "  If a filename is not specified ajs attempts to read its input from stdin   \n"
 "Options:                                                                     \n"
+"  --cpu <number>          Run on cpu <number>                                \n"
 "  --help                  Display this message                               \n"
 "  --intel                 Parse input with Intel/YASM parser                 \n"
 "  --limbs <number>        Use mpns with <number> limbs when optimising       \n"
-"  --loop  <number>        Optimise loop <number> only (overrides range)      \n"
+"  --loop <number>         Optimise loop <number> only (overrides range)      \n"
 "  --nop <number>          Additionally try adding nops at line <number>      \n"
 "  --out <file>            Write the output to <file> as well as stdout       \n"
 "  --range <start>-<end>   Only superoptimise the lines <start> to            \n"
@@ -1231,6 +1234,7 @@ void display_usage()
 "  --verbose               Print out all sequences tried                      \n"
 "                                                                             \n"
 "(abbreviations can be used e.g. --sig or just -s (with a single -))          \n"
+"                                                                             \n"
 "Examples:                                                                    \n"
 "  Basic usage:            ajs test.asm                                       \n"
 "  Specifying output file: ajs test.asm -o test_optimised.asm                 \n"
@@ -1252,10 +1256,11 @@ void display_usage()
 int main(int argc, char* argv[])
 {
   int c, start = 0, end = 0, limbs = 111, verbose = 0, nopLine = -1,
-      intelSyntax = 0, loop = 0;
+      intelSyntax = 0, loop = 0, cpunum = 0;
   char *outFile = NULL;
   char *inFile = NULL;
   string signature = "add_n";
+  cpu_set_t cpuset;
 
   if (signal(SIGINT, sig_handler) == SIG_ERR)
     printf("warning: can't catch SIGINT\n");
@@ -1265,6 +1270,7 @@ int main(int argc, char* argv[])
   int this_option_optind = optind ? optind : 1;
   int option_index = 0;
   static struct option long_options[] = {
+    {"cpu",       required_argument, 0, 'c'},
     {"help",      no_argument,       0, 'h'},
     {"intel",     no_argument,       0, 'i'},
     {"limbs",     required_argument, 0, 'l'},
@@ -1277,7 +1283,7 @@ int main(int argc, char* argv[])
     {0,           0,                 0, 0  }
   };
 
-  while ((c = getopt_long(argc, argv, "hil:p:n:o:r:s:v",
+  while ((c = getopt_long(argc, argv, "c:hil:p:n:o:r:s:v",
         long_options, &option_index)) != -1) {
 
     switch (c) {
@@ -1286,6 +1292,11 @@ int main(int argc, char* argv[])
       case 'h':
         display_usage();
         return 0;
+
+      case 'c':
+        cpunum = std::strtol(optarg, NULL, 10);
+        printf("# using cpu %d\n", cpunum);
+        break;
 
       case 'i':
         intelSyntax = 1;
@@ -1352,6 +1363,10 @@ int main(int argc, char* argv[])
     inFile = argv[optind];
     printf("# source file: %s\n", inFile);
   }
+
+  CPU_ZERO(&cpuset);
+  CPU_SET(cpunum, &cpuset);
+  sched_setaffinity(getpid(), sizeof(cpuset), &cpuset);
 
   return ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax,
       signature, nopLine, loop);
