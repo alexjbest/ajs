@@ -876,6 +876,12 @@ class ajs {
         arg4 = reinterpret_cast<uint64_t>(mpn2);
         arg5 = limbs;
       }
+      else if (signature == "sqr_basecase")
+      {
+        arg1 = reinterpret_cast<uint64_t>(mpn4);
+        arg2 = reinterpret_cast<uint64_t>(mpn1);
+        arg3 = limbs;
+      }
       else
       {
         if (signature != "add_n")
