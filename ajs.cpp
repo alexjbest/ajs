@@ -908,14 +908,6 @@ class ajs {
       for (int i = 0; i < func.size(); i++)
         perm.insert(perm.end(), i);
 
-      // 'warm up' the processor?
-      for (int i = 0; i < 20000 && !exiting; i++)
-        timeFunc(func, perm, numLabels, 0, 0, overhead, arg1, arg2,
-            arg3, arg4, arg5, arg6);
-
-      // set logger if we are in verbose mode
-      if (verbose)
-        assembler.setLogger(&logger);
 
       uint64_t bestTime = timeFunc(func, perm, numLabels, 0,
           verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
@@ -1050,6 +1042,20 @@ class ajs {
 
       getArgs(mpn1, mpn2, mpn3, mpn4, limbs, signature, arg1, arg2, arg3, arg4,
           arg5, arg6);
+
+      list<int> idPerm;
+
+      for (int i = 0; i < func.size(); i++)
+        idPerm.insert(idPerm.end(), i);
+
+      // 'warm up' the processor?
+      for (int i = 0; i < 20000 && !exiting; i++)
+        timeFunc(func, idPerm, numLabels, 0, 0, 0, arg1, arg2,
+            arg3, arg4, arg5, arg6);
+
+      // set logger if we are in verbose mode
+      if (verbose)
+        assembler.setLogger(&logger);
 
       Line ret(X86Util::getInstIdByName("ret"));
       vector<Line> emptyFunc(1, ret);
