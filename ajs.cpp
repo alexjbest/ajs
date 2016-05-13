@@ -1262,7 +1262,7 @@ void display_usage()
 int main(int argc, char* argv[])
 {
   int c, start = 0, end = 0, limbs = 111, verbose = 0, nopLine = -1,
-      intelSyntax = 0, loop = 0, cpunum = 0;
+      intelSyntax = 0, loop = 0, cpunum = -1;
   char *outFile = NULL;
   char *inFile = NULL;
   string signature = "add_n";
@@ -1364,15 +1364,16 @@ int main(int argc, char* argv[])
     }
   }
 
-  if (argc - optind >= 1)
-  {
+  if (argc - optind >= 1) {
     inFile = argv[optind];
     printf("# source file: %s\n", inFile);
   }
 
-  CPU_ZERO(&cpuset);
-  CPU_SET(cpunum, &cpuset);
-  sched_setaffinity(getpid(), sizeof(cpuset), &cpuset);
+  if (cpunum != -1) {
+    CPU_ZERO(&cpuset);
+    CPU_SET(cpunum, &cpuset);
+    sched_setaffinity(getpid(), sizeof(cpuset), &cpuset);
+  }
 
   return ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax,
       signature, nopLine, loop);
