@@ -11,6 +11,6 @@ replacing `~/` with another path if required.
 
 You can then (probably) run make to build the superoptimiser.
 If this was successful `./ajs --help` will show usage information.
-The helper script `superopt` is handy for optimising files which require pre-processing (via `m4` or `yasm`) its basic usage is `./superopt YOUR-FILE`, for more information run `./superopt --help`.
+The helper script `superopt` is handy for optimising files which require pre-processing (via `m4` or `yasm`) as it will do this for you and pipe the output to ajs. Its basic usage is `./superopt YOUR-FILE`, for more information run `./superopt --help`. For this to work you will need a copy of `m4` installed and a built version of the MPIR source located in the directory above `ajs`, if this is not the case the script can be modified to work by changing the `MPIR_ROOT` variable inside.
 
 There is also a script called `mpir` that will automatically call `superopt` for many MPIR functions, this uses the `.txt` files whose names are given in `sigs.txt` to determine the function signatures.
