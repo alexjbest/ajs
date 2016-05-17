@@ -1093,6 +1093,13 @@ class ajs {
         }
       }
 
+      while (func.size() > bestPerm.size())
+      {
+        vector<Line>::iterator pos = func.begin();
+        pos += nopLine;
+        pos = func.erase(pos);
+      }
+
       free(mpn1);
       free(mpn2);
       free(mpn3);
