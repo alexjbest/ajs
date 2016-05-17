@@ -669,13 +669,13 @@ class ajs {
       return *(int*)a - *(int*)b;
     }
 
-    static uint64_t callFunc(void* funcPtr, uint64_t target,
-        const int verbose, const uint64_t overhead, uint64_t arg1,
-        uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t
-        arg6)
+    static double callFunc(void* funcPtr, uint64_t target,
+        const int verbose, const double overhead, uint64_t arg1,
+        uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
       uint32_t cycles_high, cycles_high1, cycles_low, cycles_low1;
-      uint64_t start, end, total;
+      uint64_t start, end;
+      double total;
       const int loopsize = 1, trials = 60;
       volatile int k = 0;
 
@@ -731,12 +731,13 @@ class ajs {
         times[i] = curTotal;
       }
 
-
       qsort(times, trials, sizeof(int), comp);
-      total = times[trials / 5];
+      for (int i = 0; i < trials - 5; i++)
+        total += times[i];
+      total /= ((double)trials - 5.0L);
 
       if (verbose)
-        printf("# total time: %ld\n", total);
+        printf("# total time: %lf\n", total);
 
       ajs::runtime.release((void*)callableFunc);
 
@@ -789,12 +790,12 @@ class ajs {
     }
 
     // makes a function with assembler then times the generated function with callFunc.
-    static uint64_t timeFunc(vector<Line>& func, list<int>& perm,
-        int numLabels, uint64_t target, const int verbose, uint64_t overhead,
+    static double timeFunc(vector<Line>& func, list<int>& perm,
+        int numLabels, uint64_t target, const int verbose, double overhead,
         uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4,
         uint64_t arg5, uint64_t arg6)
     {
-      int times[2] = {-1, -1};
+      double times[2] = {-1, -1};
       do {
         for (int i = 0; i < 2; i++)
         {
@@ -808,7 +809,10 @@ class ajs {
 
         }
       }
-      while (times[0] != times[1]);
+      while (times[0] - times[1] > 0.25L);
+
+      if (times[1] < times[0])
+        times[0] = times[1];
 
       return times[0];
     }
@@ -895,7 +899,7 @@ class ajs {
       }
     }
 
-    static uint64_t tryPerms(list<int>& bestPerm, vector<Line>& func,
+    static double tryPerms(list<int>& bestPerm, vector<Line>& func,
         const int numLabels, const int from, const int to, const int verbose,
         const uint64_t overhead, uint64_t arg1, uint64_t arg2, uint64_t arg3,
         uint64_t arg4, uint64_t arg5, uint64_t arg6)
@@ -909,10 +913,10 @@ class ajs {
         perm.insert(perm.end(), i);
 
 
-      uint64_t bestTime = timeFunc(func, perm, numLabels, 0,
+      double bestTime = timeFunc(func, perm, numLabels, 0,
           verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
       bestPerm = perm;
-      printf("# original sequence: %ld\n", bestTime);
+      printf("# original sequence: %lf\n", bestTime);
 
       list<int>::iterator start = perm.begin();
       advance(start, from);
@@ -979,13 +983,13 @@ class ajs {
             if (verbose)
               printf("\n# timing sequence:\n");
             // time this permutation
-            uint64_t newTime = timeFunc(func, perm, numLabels,
+            double newTime = timeFunc(func, perm, numLabels,
                 bestTime, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
-            if (bestTime == 0 || newTime < bestTime)
+            if (bestTime == 0 || bestTime - newTime > 0.25L)
             {
-              printf("# better sequence found: %ld", newTime);
+              printf("# better sequence found: %lf", newTime);
               if (bestTime != 0)
-                printf(" delta: %ld", bestTime - newTime);
+                printf(" delta: %lf", bestTime - newTime);
               printf("\n");
               bestPerm = perm;
               bestTime = newTime;
@@ -1024,12 +1028,11 @@ class ajs {
       return bestTime;
     }
 
-    static uint64_t superOptimise(list<int>& bestPerm, vector<Line>& func,
-         const int
-        numLabels, const int from, const int to, const uint64_t limbs, const
-        int verbose, string signature, int nopLine = -1)
+    static double superOptimise(list<int>& bestPerm, vector<Line>& func,
+        const int numLabels, const int from, const int to, const uint64_t limbs,
+        const int verbose, string signature, int nopLine = -1)
     {
-      uint64_t bestTime = 0, overhead = 0;
+      double bestTime = 0, overhead = 0;
       uint64_t *mpn1, *mpn2, *mpn3, *mpn4;
       uint64_t arg1, arg2, arg3, arg4, arg5, arg6;
 
@@ -1066,6 +1069,7 @@ class ajs {
       bestTime = tryPerms(bestPerm, func, numLabels, from,
           to, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
 
+      // optionally add nops and time again
       list<int> nopPerm;
       if (nopLine != -1)
       {
@@ -1082,7 +1086,7 @@ class ajs {
             addDeps(pos, func);
           }
 
-          uint64_t bestNopTime = tryPerms(nopPerm, func,
+          double bestNopTime = tryPerms(nopPerm, func,
               numLabels, from, to, verbose, overhead, arg1, arg2, arg3, arg4,
               arg5, arg6);
           if (bestNopTime < bestTime)
@@ -1093,6 +1097,7 @@ class ajs {
         }
       }
 
+      // remove nops that were not helpful
       while (func.size() > bestPerm.size())
       {
         vector<Line>::iterator pos = func.begin();
@@ -1121,8 +1126,7 @@ class ajs {
             if (ci->getOp(0).isLabel()) {
               start = 1;
               for (vector<Line>::const_iterator ci2 = func.begin(); ci2 != ci; ++ci2, start++) {
-                if (ci2->isLabel() && ci2->getLabel() == ci->getOp(0).getId())
-                {
+                if (ci2->isLabel() && ci2->getLabel() == ci->getOp(0).getId()) {
                   i--;
                   if (i == 0)
                     return;
@@ -1172,7 +1176,7 @@ class ajs {
         exit(EXIT_FAILURE);
       }
 
-      uint64_t bestTime = superOptimise(bestPerm, func,
+      double bestTime = superOptimise(bestPerm, func,
           numLabels, start, end, limbs, verbose, signature, nopLine);
 
       list<int>::iterator startIt = bestPerm.begin();
@@ -1180,7 +1184,7 @@ class ajs {
       list<int>::iterator endIt = bestPerm.begin();
       advance(endIt, end + 1);
 
-      printf("# optimisation complete, best time of %lu for sequence:\n",
+      printf("# optimisation complete, best time of %lf for sequence:\n",
           bestTime);
       assembler.reset();
       assembler.setLogger(&logger);
@@ -1194,8 +1198,8 @@ class ajs {
         assembler.setLogger(&logger);
         FILE* of = fopen(outFile, "w");
         logger.setStream(of);
-        logger.logFormat(Logger::kStyleComment, "# This file was produced by ajs, the MPIR assembly superoptimiser\n", bestTime, limbs);
-        logger.logFormat(Logger::kStyleComment, "# %lu cycles/%lu limbs\n", bestTime, limbs);
+        logger.logFormat(Logger::kStyleComment, "# This file was produced by ajs, the MPIR assembly superoptimiser\n");
+        logger.logFormat(Logger::kStyleComment, "# %lf cycles/%lu limbs\n", bestTime, limbs);
         addFunc(func, bestPerm, numLabels, 1);
         fclose(of);
       }
