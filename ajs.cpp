@@ -894,7 +894,14 @@ class ajs {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = limbs;
-        arg4 = (uint64_t)311;
+        arg4 = (uint64_t)14412932479013124615ULL;
+      }
+      else if (signature == "addmul_2")
+      {
+        arg1 = reinterpret_cast<uint64_t>(mpn1);
+        arg2 = reinterpret_cast<uint64_t>(mpn2);
+        arg3 = limbs;
+        arg4 = reinterpret_cast<uint64_t>(mpn3);
       }
       else if (signature == "mul_basecase")
       {
@@ -1059,7 +1066,7 @@ class ajs {
       uint64_t arg1, arg2, arg3, arg4, arg5, arg6;
 
       // set up arguments for use by function
-      mpn1 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
+      mpn1 = (uint64_t*)malloc((limbs + 1) * sizeof(uint64_t));
       mpn2 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       mpn3 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       // double size mpn, e.g. for output of mpn_mul
@@ -1267,7 +1274,8 @@ void display_usage()
 "                            add_n:        mpn, mpn, mpn, length              \n"
 "                            addadd_n:     mpn, mpn, mpn, mpn, length         \n"
 "                            addlsh_n:     mpn, mpn, mpn, length, shift (31)  \n"
-"                            addmul_1:     mpn, mpn, length, multiplier (311) \n"
+"                            addmul_1:     mpn, mpn, length, multiplier       \n"
+"                            addmul_2:     mpn, mpn, length, mpn (length 2)   \n"
 "                            mul_basecase: mpn, mpn, length, mpn, length      \n"
 "                          If no signature is specified add_n is used         \n"
 "  --verbose               Print out all sequences tried                      \n"
