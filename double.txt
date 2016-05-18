@@ -1,3 +1,4 @@
 double
 half
+not
 popcount

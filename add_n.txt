@@ -3,7 +3,7 @@ addlsh1_n
 and_n
 andn_n
 ior_n
-ion_n
+iorn_n
 nand_n
 nior_n
 rsh1add_n

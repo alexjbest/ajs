@@ -1,5 +1,6 @@
 com_n
 copyi
 copyd
+hamdist
 lshift1
 rshift1
