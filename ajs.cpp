@@ -302,16 +302,35 @@ class ajs {
       if (ainfo.getEFlagsIn() & binfo.getEFlagsOut())
         return true;
 
-      // if a sets flags also set by b there is a dependency
-      if (ainfo.getEFlagsOut() & binfo.getEFlagsOut())
-        return true;
-
       // if a sets flags read by b there is a dependency
       if (ainfo.getEFlagsOut() & binfo.getEFlagsIn())
         return true;
 
+      // if a sets flags also set by b there is possibly a dependency
+      // unless another set happens before the next read of the same register
+      if (ainfo.getEFlagsOut() & binfo.getEFlagsOut())
+      {
+        uint32_t flags = ainfo.getEFlagsOut() & binfo.getEFlagsOut();
+
+        vector<Line>::const_iterator li;
+        for (li = ai + 1; li != func.end(); ++li)
+        {
+          if (!li->isInstruction())
+            continue;
+
+          const X86InstInfo& liinfo = X86Util::getInstInfo(li->getInstruction());
+
+          if (flags & liinfo.getEFlagsIn())
+            return true;
+
+          flags = flags - (flags & liinfo.getEFlagsOut());
+        }
+      }
+
+
       vector<X86Reg> in;
 
+      // if a reads a register written to by b there is a dependency
       in = intersection(a.getRegsIn(), b.getRegsOut());
       // TODO poss change to if len
       for (vector<X86Reg>::const_iterator ci = in.begin(); ci != in.end(); ++ci)
@@ -319,12 +338,15 @@ class ajs {
         return true;
       }
 
+      // if a writes to a register read by b there is a dependency
       in = intersection(a.getRegsOut(), b.getRegsIn());
       for (vector<X86Reg>::const_iterator ci = in.begin(); ci != in.end(); ++ci)
       {
         return true;
       }
 
+      // if a writes to a register written by b there is possibly a dependency
+      // unless another write happens before the next read of the same register
       in = intersection(a.getRegsOut(), b.getRegsOut());
       for (vector<X86Reg>::const_iterator ci = in.begin(); ci != in.end(); ++ci)
       {
