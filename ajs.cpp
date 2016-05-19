@@ -371,15 +371,17 @@ class ajs {
     {
       if (!l.isInstruction())
         return;
-      if (l.getInstruction() == X86Util::getInstIdByName("mul"))
+      if ((l.getInstruction() == X86Util::getInstIdByName("div"))
+          || (l.getInstruction() == X86Util::getInstIdByName("idiv"))
+          || (l.getInstruction() == X86Util::getInstIdByName("mul"))
+          || (l.getInstruction() == X86Util::getInstIdByName("sahf")))
         l.addRegIn(rax);
-      if (l.getInstruction() == X86Util::getInstIdByName("mulx"))
+      if ((l.getInstruction() == X86Util::getInstIdByName("div"))
+          || (l.getInstruction() == X86Util::getInstIdByName("idiv"))
+          || (l.getInstruction() == X86Util::getInstIdByName("mulx")))
         l.addRegIn(rdx);
-      if (l.getInstruction() == X86Util::getInstIdByName("sahf"))
-        l.addRegIn(rax);
-      if (l.getInstruction() == X86Util::getInstIdByName("pop"))
-        l.addRegIn(rsp);
-      if (l.getInstruction() == X86Util::getInstIdByName("push"))
+      if ((l.getInstruction() == X86Util::getInstIdByName("pop"))
+          || (l.getInstruction() == X86Util::getInstIdByName("push")))
         l.addRegIn(rsp);
       for (int i = 0; i < MAX_OPS; i++)
       {
@@ -434,15 +436,17 @@ class ajs {
         if (opWritten)
           l.addRegOut(*static_cast<const X86Reg*>(l.getOpPtr(0)));
       }
-      if (l.getInstruction() == X86Util::getInstIdByName("lahf"))
+      if ((l.getInstruction() == X86Util::getInstIdByName("lahf"))
+          || (l.getInstruction() == X86Util::getInstIdByName("mul"))
+          || (l.getInstruction() == X86Util::getInstIdByName("div"))
+          || (l.getInstruction() == X86Util::getInstIdByName("idiv")))
         l.addRegOut(rax);
-      if (l.getInstruction() == X86Util::getInstIdByName("mul")) {
-        l.addRegOut(rax);
+      if ((l.getInstruction() == X86Util::getInstIdByName("mul"))
+          || (l.getInstruction() == X86Util::getInstIdByName("div"))
+          || (l.getInstruction() == X86Util::getInstIdByName("idiv")))
         l.addRegOut(rdx);
-      }
-      if (l.getInstruction() == X86Util::getInstIdByName("pop"))
-        l.addRegOut(rsp);
-      if (l.getInstruction() == X86Util::getInstIdByName("push"))
+      if ((l.getInstruction() == X86Util::getInstIdByName("pop"))
+          || (l.getInstruction() == X86Util::getInstIdByName("push")))
         l.addRegOut(rsp);
     }
 
