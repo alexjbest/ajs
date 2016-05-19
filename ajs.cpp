@@ -1194,8 +1194,9 @@ class ajs {
     }
 
     static int run(const char* file, int start, int end, const uint64_t limbs,
-        const char* outFile, const int verbose, const int intelSyntax, const
-        string signature, const int nopLine, const int loop)
+        const char* outFile, const int verbose, const int intelSyntax,
+        const string signature, const int nopLine, const int loop,
+        const string prepend, const string append)
     {
       int numLabels = 0;
 
@@ -1254,7 +1255,9 @@ class ajs {
         logger.setStream(of);
         logger.logFormat(Logger::kStyleComment, "# This file was produced by ajs, the MPIR assembly superoptimiser\n");
         logger.logFormat(Logger::kStyleComment, "# %lf cycles/%lu limbs\n", bestTime, limbs);
+        logger.logFormat(Logger::kStyleComment, "%s\n", prepend.c_str());
         addFunc(func, bestPerm, numLabels, 1);
+        logger.logFormat(Logger::kStyleComment, "%s\n", append.c_str());
         fclose(of);
       }
 
@@ -1278,50 +1281,52 @@ void sig_handler(int signo)
 void display_usage()
 {
   printf(
-"Usage: ajs [options] [filename]                                              \n"
-"  If a filename is not specified ajs attempts to read its input from stdin   \n"
-"Options:                                                                     \n"
-"  --cpu <number>          Run on cpu <number>                                \n"
-"  --help                  Display this message                               \n"
-"  --intel                 Parse input with Intel/YASM parser                 \n"
-"  --limbs <number>        Use mpns with <number> limbs when optimising       \n"
-"  --loop <number>         Optimise loop <number> only (overrides range)      \n"
-"  --nop <number>          Additionally try adding nops at line <number>      \n"
-"  --out <file>            Write the output to <file> as well as stdout       \n"
-"  --range <start>-<end>   Only superoptimise the lines <start> to            \n"
-"                          <end> (inclusive)                                  \n"
-"  --signature <signature> Give the function inputs of the format <signature>,\n"
-"                          where the possible signatures are as follows       \n"
-"                            double:       mpn, length                        \n"
-"                            store:        mpn, length, value (123124412)     \n"
-"                            com_n:        mpn, mpn, length                   \n"
-"                            lshift:       mpn, mpn, length, shift (31)       \n"
-"                            add_n:        mpn, mpn, mpn, length              \n"
-"                            addadd_n:     mpn, mpn, mpn, mpn, length         \n"
-"                            addlsh_n:     mpn, mpn, mpn, length, shift (31)  \n"
-"                            addmul_1:     mpn, mpn, length, multiplier       \n"
-"                            addmul_2:     mpn, mpn, length, mpn (length 2)   \n"
-"                            mul_basecase: mpn, mpn, length, mpn, length      \n"
-"                          If no signature is specified add_n is used         \n"
-"  --verbose               Print out all sequences tried                      \n"
-"                                                                             \n"
-"(abbreviations can be used e.g. --sig or just -s (with a single -))          \n"
-"                                                                             \n"
-"Examples:                                                                    \n"
-"  Basic usage:            ajs test.asm                                       \n"
-"  Specifying output file: ajs test.asm -o test_optimised.asm                 \n"
-"  Intel syntax mode:      ajs -i test.as                                     \n"
-"  Signature selection:    ajs --sig=double half.asm                          \n"
-"  Range selection:        ajs -r 1-2 four_line_file.asm                      \n"
-"  Debugging:              ajs test.asm | as                                  \n"
-"                          ajs -v test.asm                                    \n"
-"                          ajs                                                \n"
-"                          > add    %%rax,%%rax                               \n"
-"                          > ret                                              \n"
-"                          > <Ctrl-D>                                         \n"
-"  Piping input:           m4 test.asm | ajs -o test_optimised.asm            \n"
-"  Use with gcc:           gcc -S -O3 tst.c -o tst.s                          \n"
-"                            && ajs tst.s -o tst_optimised.s                  \n"
+"Usage: ajs [options] [filename]                                               \n"
+"  If a filename is not specified ajs attempts to read its input from stdin    \n"
+"Options:                                                                      \n"
+"  --help                  Display this message                                \n"
+"  --cpu <number>          Run on cpu <number>                                 \n"
+"  --intel                 Parse input with Intel/YASM parser                  \n"
+"  --limbs <number>        Use mpns with <number> limbs when optimising        \n"
+"  --nop <number>          Additionally try adding nops at line <number>       \n"
+"  --range <start>-<end>   Only superoptimise the lines <start> to             \n"
+"                          <end> (inclusive)                                   \n"
+"  --loop <number>         Optimise loop <number> only (overrides range)       \n"
+"  --signature <signature> Give the function inputs of the format <signature>, \n"
+"                          where the possible signatures are as follows        \n"
+"                            double:       mpn, length                         \n"
+"                            store:        mpn, length, value (123124412)      \n"
+"                            com_n:        mpn, mpn, length                    \n"
+"                            lshift:       mpn, mpn, length, shift (31)        \n"
+"                            add_n:        mpn, mpn, mpn, length               \n"
+"                            addadd_n:     mpn, mpn, mpn, mpn, length          \n"
+"                            addlsh_n:     mpn, mpn, mpn, length, shift (31)   \n"
+"                            addmul_1:     mpn, mpn, length, multiplier        \n"
+"                            addmul_2:     mpn, mpn, length, mpn (length 2)    \n"
+"                            mul_basecase: mpn, mpn, length, mpn, length       \n"
+"                          If no signature is specified add_n is used          \n"
+"  --verbose               Print out all sequences tried                       \n"
+"  --out <file>            Write the final output to <file>                    \n"
+"  --append <string>       When outputing to file append <string> to the end   \n"
+"  --prepend <string> (q)  When outputing to file prepend <string> at the start\n"
+"                                                                              \n"
+"(abbreviations can be used e.g. --sig or just -s (with a single -))           \n"
+"                                                                              \n"
+"Examples:                                                                     \n"
+"  Basic usage:            ajs test.asm                                        \n"
+"  Specifying output file: ajs test.asm -o test_optimised.asm                  \n"
+"  Intel syntax mode:      ajs -i test.as                                      \n"
+"  Signature selection:    ajs --sig=double half.asm                           \n"
+"  Range selection:        ajs -r 1-2 four_line_file.asm                       \n"
+"  Debugging:              ajs test.asm | as                                   \n"
+"                          ajs -v test.asm                                     \n"
+"                          ajs                                                 \n"
+"                          > add    %%rax,%%rax                                \n"
+"                          > ret                                               \n"
+"                          > <Ctrl-D>                                          \n"
+"  Piping input:           m4 test.asm | ajs -o test_optimised.asm             \n"
+"  Use with gcc:           gcc -S -O3 tst.c -o tst.s                           \n"
+"                            && ajs tst.s -o tst_optimised.s                   \n"
       );
 }
 
@@ -1331,7 +1336,7 @@ int main(int argc, char* argv[])
       intelSyntax = 0, loop = 0, cpunum = -1;
   char *outFile = NULL;
   char *inFile = NULL;
-  string signature = "add_n";
+  string signature = "add_n", prepend = "", append = "";
   cpu_set_t cpuset;
 
   if (signal(SIGINT, sig_handler) == SIG_ERR)
@@ -1342,6 +1347,7 @@ int main(int argc, char* argv[])
   int this_option_optind = optind ? optind : 1;
   int option_index = 0;
   static struct option long_options[] = {
+    {"append",    required_argument, 0, 'a'},
     {"cpu",       required_argument, 0, 'c'},
     {"help",      no_argument,       0, 'h'},
     {"intel",     no_argument,       0, 'i'},
@@ -1349,13 +1355,14 @@ int main(int argc, char* argv[])
     {"loop",      required_argument, 0, 'p'},
     {"nop",       required_argument, 0, 'n'},
     {"out",       required_argument, 0, 'o'},
+    {"prepend",   required_argument, 0, 'q'},
     {"range",     required_argument, 0, 'r'},
     {"signature", required_argument, 0, 's'},
     {"verbose",   no_argument,       0, 'v'},
     {0,           0,                 0, 0  }
   };
 
-  while ((c = getopt_long(argc, argv, "c:hil:p:n:o:r:s:v",
+  while ((c = getopt_long(argc, argv, "a:c:hil:p:n:o:q:r:s:v",
         long_options, &option_index)) != -1) {
 
     switch (c) {
@@ -1427,6 +1434,14 @@ int main(int argc, char* argv[])
         verbose = 1;
         printf("# verbose mode on\n");
         break;
+
+      case 'a':
+        append = string(optarg);
+        break;
+
+      case 'q':
+        prepend = string(optarg);
+        break;
     }
   }
 
@@ -1442,5 +1457,5 @@ int main(int argc, char* argv[])
   }
 
   return ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax,
-      signature, nopLine, loop);
+      signature, nopLine, loop, prepend, append);
 }
