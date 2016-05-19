@@ -35,7 +35,7 @@ using namespace std;
 class ajs {
 
   public:
-    static int exiting;
+    static int exiting; // boolean: whether or not ajs should be stopping, (set by interupt handler)
     static JitRuntime runtime;
     static X86Assembler assembler;
     static FileLogger logger;
@@ -156,7 +156,7 @@ class ajs {
               addr.at(i) == ']')
           {
             token = addr.substr(pi, i - pi);
-            try // Is it an number?
+            try // Is it a number?
             {
               uint32_t val = getVal(token);
               if (wantShift) {
@@ -207,6 +207,8 @@ class ajs {
       }
     }
 
+    // returns the operand represented by a string
+    // i.e. an immediate value, label, register, or memory location
     static Operand getOpFromStr(string op, map<string, Label>& labels,
         uint32_t size, int intelSyntax)
     {
@@ -254,6 +256,7 @@ class ajs {
       return noOperand;
     }
 
+    // returns the intersection of two vectors of registers
     static vector<X86Reg> intersection(const vector<X86Reg>& v1, const
         vector<X86Reg>& v2)
     {
@@ -267,7 +270,7 @@ class ajs {
       return in;
     }
 
-    // returns whether line a depends on line b or not
+    // returns whether Line a depends on Line b or not
     // i.e. if a followed b originally whether swapping is permissible in general
     static bool dependsOn(vector<Line>::const_iterator ai,
         vector<Line>::const_iterator bi, vector<Line>& func)
@@ -367,6 +370,8 @@ class ajs {
       return false;
     }
 
+    // adds the registers read from by a Line to Line
+    // there will not be any for non-instruction lines
     static void addRegsRead(Line& l)
     {
       if (!l.isInstruction())
@@ -423,6 +428,8 @@ class ajs {
       }
     }
 
+    // adds the registers written to by a Line
+    // there will not be any for non-instruction lines
     static void addRegsWritten(Line& l)
     {
       if (!l.isInstruction())
@@ -450,6 +457,7 @@ class ajs {
         l.addRegOut(rsp);
     }
 
+    // adds newLine's dependencies on existing lines in func
     static void addDeps(vector<Line>::iterator newLine, vector<Line>& func)
     {
       // try to determine other dependencies
@@ -482,16 +490,19 @@ class ajs {
       }
     }
 
-    static int loadFuncFromFile(vector<Line>& func, const
-        char* file, const int intelSyntax)
+    // core parsing function, loads lines from either the filename given in
+    // imput or stdin if this is null and converts them to Lines which are
+    // returned in func
+    static int loadFunc(vector<Line>& func, const char* input,
+        const int intelSyntax)
     {
       map<string, Label> labels;
 
       // if we are given a file path use it, otherwise try stdin.
       ifstream ifs;
-      if (file != NULL)
-        ifs.open(file);
-      istream& is = file != NULL ? ifs : cin;
+      if (input != NULL)
+        ifs.open(input);
+      istream& is = input != NULL ? ifs : cin;
       string str;
 
       if (is.fail())
@@ -690,11 +701,14 @@ class ajs {
       return labels.size();
     }
 
+    // integer compare
     static int comp(const void * a, const void * b)
     {
       return *(int*)a - *(int*)b;
     }
 
+    // calls the function given by funcPtr and returns the approximate number
+    // of cycles taken
     static double callFunc(void* funcPtr, uint64_t target,
         const int verbose, const double overhead, uint64_t arg1,
         uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
@@ -770,6 +784,7 @@ class ajs {
       return total;
     }
 
+    // adds the function func with the permutation perm applied to the X86Assembler
     static void addFunc(vector<Line>& func, list<int>& perm, int numLabels,
         int verbose)
     {
@@ -815,7 +830,7 @@ class ajs {
       }
     }
 
-    // makes a function with assembler then times the generated function with callFunc.
+    // makes a callable function using assembler then times the generated function with callFunc.
     static double timeFunc(vector<Line>& func, list<int>& perm,
         int numLabels, uint64_t target, const int verbose, double overhead,
         uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4,
@@ -1040,7 +1055,9 @@ class ajs {
                 ci != lines[i].end(); ++ci)
             {
               Line& freeLine = func[*ci];
-              if (find(freeLine.getDependencies().begin(), freeLine.getDependencies().end(), *cur) != freeLine.getDependencies().end())
+              if (find(freeLine.getDependencies().begin(),
+                    freeLine.getDependencies().end(), *cur) !=
+                  freeLine.getDependencies().end())
               {
                 lines[i + 1].push_back(*ci);
                 ci = lines[i].erase(ci);
@@ -1061,6 +1078,10 @@ class ajs {
       return bestTime;
     }
 
+    // core superoptimise function, takes a function as a list of Lines, to and
+    // from indexes, limb count and signature (and optionally a line in which
+    // to insert up to 3 nops) and returns the valid reordering of func that
+    // executes in the least time.
     static double superOptimise(list<int>& bestPerm, vector<Line>& func,
         const int numLabels, const int from, const int to, const uint64_t limbs,
         const int verbose, string signature, int nopLine = -1)
@@ -1146,7 +1167,7 @@ class ajs {
       return bestTime;
     }
 
-    // Gets the start and end index of the ith loop of func
+    // Gets the start and end line index of the ith loop of func
     static void getLoopRange(int& start, int& end, int i, vector<Line> func)
     {
       end = 0;
@@ -1185,7 +1206,7 @@ class ajs {
       vector<Line> func;
       list<int> bestPerm;
       // load original from the file given in arguments
-      numLabels = loadFuncFromFile(func, file, intelSyntax);
+      numLabels = loadFunc(func, file, intelSyntax);
 
       // returned if something went wrong when loading
       if (numLabels == -1)
