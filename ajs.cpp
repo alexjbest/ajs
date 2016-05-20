@@ -716,7 +716,7 @@ class ajs {
       uint32_t cycles_high, cycles_high1, cycles_low, cycles_low1;
       uint64_t start, end;
       double total;
-      const int loopsize = 1, trials = 60;
+      const int loopsize = 2, trials = 60;
       volatile int k = 0;
 
       // In order to run 'funcPtr' it has to be casted to the desired type.
@@ -755,7 +755,7 @@ class ajs {
 
           start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
           end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
-          curTotal += end - start - overhead;
+          times[i] = end - start - overhead;
 
           if (0 && target != 0 && k >= loopsize >> 1 && curTotal > (target + 20) * (k + 1))
           {
@@ -766,15 +766,27 @@ class ajs {
             break;
           }
         }
-
-        curTotal /= k;
-        times[i] = curTotal;
       }
 
       qsort(times, trials, sizeof(int), comp);
-      for (int i = 0; i < trials - 5; i++)
+      int prev = times[0];
+      int i, diffs;
+      for (i = 0; verbose && i < trials; i++)
+        cout << times[i] << " ";
+      if (verbose)
+        cout <<endl;
+      for (i = 0, diffs = 0; i < trials; i++)
+      {
+        if (prev != times[i])
+        {
+          diffs++;
+          if (diffs == 2 || prev + 1 < times[i])
+            break;
+          prev = times[i];
+        }
         total += times[i];
-      total /= ((double)trials - 5.0L);
+      }
+      total /= ((double)i);
 
       if (verbose)
         printf("# total time: %lf\n", total);
@@ -1105,7 +1117,7 @@ class ajs {
         idPerm.insert(idPerm.end(), i);
 
       // 'warm up' the processor?
-      for (int i = 0; i < 20000 && !exiting; i++)
+      for (int i = 0; i < 100000 && !exiting; i++)
         timeFunc(func, idPerm, numLabels, 0, 0, 0, arg1, arg2,
             arg3, arg4, arg5, arg6);
 
@@ -1167,7 +1179,7 @@ class ajs {
     }
 
     // Gets the start and end line index of the ith loop of func
-    static void getLoopRange(int& start, int& end, int i, vector<Line> func)
+    static void getLoopRange(int& start, int& end, int i, const vector<Line>& func)
     {
       end = 0;
       for (vector<Line>::const_iterator ci = func.begin(); ci != func.end();
