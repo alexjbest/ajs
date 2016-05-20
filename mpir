@@ -3,22 +3,19 @@
 set -e
 
 LOCATION=../mpir/mpn
+OUT_DIR=out
 while IFS= read -r sig
 do
 	while IFS= read -r file
 	do
-		for f in $LOCATION/$file.as
+		for f in $LOCATION/$file.as $LOCATION/$file.asm
+
 		do
 			if [ -a $f ]
 			then
-				./superopt $f -s $sig
-			fi
-		done
-		for f in $LOCATION/$file.asm
-		do
-			if [ -a $f ]
-			then
-				./superopt $f -s $sig
+				./superopt $f -s $sig -q "include(\`../config.m4')
+ASM_START()
+PROLOGUE(mpn_$file)" -a "EPILOGUE()" -o "$OUT_DIR/$file.asm"
 			fi
 		done
 	done < "$sig.txt"
