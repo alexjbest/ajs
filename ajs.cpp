@@ -960,8 +960,8 @@ class ajs {
 
     static double tryPerms(list<int>& bestPerm, vector<Line>& func,
         const int numLabels, const int from, const int to, const int verbose,
-        const uint64_t overhead, uint64_t arg1, uint64_t arg2, uint64_t arg3,
-        uint64_t arg4, uint64_t arg5, uint64_t arg6)
+        const uint64_t overhead, const int maxPerms, uint64_t arg1,
+        uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
       int count = 0, level = 0;
       vector< list<int> > lines(to + 1 - from);
@@ -1001,7 +1001,7 @@ class ajs {
       list<int>::iterator cur = perm.begin();
       advance(cur, from - 1);
 
-      while (level >= 0)
+      while (level >= 0 && (maxPerms == 0 || count < maxPerms))
       {
         if (exiting)
           break;
@@ -1095,7 +1095,7 @@ class ajs {
     // executes in the least time.
     static double superOptimise(list<int>& bestPerm, vector<Line>& func,
         const int numLabels, const int from, const int to, const uint64_t limbs,
-        const int verbose, string signature, int nopLine = -1)
+        const int verbose, string signature, int nopLine = -1, const int maxPerms = 0)
     {
       double bestTime = 0, overhead = 0;
       uint64_t *mpn1, *mpn2, *mpn3, *mpn4;
@@ -1131,8 +1131,8 @@ class ajs {
       overhead = timeFunc(emptyFunc, emptyPerm, 0,
           bestTime, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
 
-      bestTime = tryPerms(bestPerm, func, numLabels, from,
-          to, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
+      bestTime = tryPerms(bestPerm, func, numLabels, from, to, verbose,
+          overhead, maxPerms, arg1, arg2, arg3, arg4, arg5, arg6);
 
       // optionally add nops and time again
       list<int> nopPerm;
@@ -1152,8 +1152,8 @@ class ajs {
           }
 
           double bestNopTime = tryPerms(nopPerm, func,
-              numLabels, from, to, verbose, overhead, arg1, arg2, arg3, arg4,
-              arg5, arg6);
+              numLabels, from, to, verbose, overhead, maxPerms, arg1, arg2,
+              arg3, arg4, arg5, arg6);
           if (bestNopTime < bestTime)
           {
             bestTime = bestNopTime;
@@ -1207,7 +1207,7 @@ class ajs {
     static int run(const char* file, int start, int end, const uint64_t limbs,
         const char* outFile, const int verbose, const int intelSyntax,
         const string signature, const int nopLine, const int loop,
-        const string prepend, const string append)
+        const string prepend, const string append, const int maxPerms)
     {
       int numLabels = 0;
 
@@ -1243,7 +1243,7 @@ class ajs {
       }
 
       double bestTime = superOptimise(bestPerm, func,
-          numLabels, start, end, limbs, verbose, signature, nopLine);
+          numLabels, start, end, limbs, verbose, signature, nopLine, maxPerms);
 
       list<int>::iterator startIt = bestPerm.begin();
       advance(startIt, start);
@@ -1303,6 +1303,7 @@ void display_usage()
 "  --range <start>-<end>   Only superoptimise the lines <start> to             \n"
 "                          <end> (inclusive)                                   \n"
 "  --loop <number>         Optimise loop <number> only (overrides range)       \n"
+"  --max-perms <number>    Try at most <number> permutations for each function \n"
 "  --signature <signature> Give the function inputs of the format <signature>, \n"
 "                          where the possible signatures are as follows        \n"
 "                            double:       mpn, length                         \n"
@@ -1344,7 +1345,7 @@ void display_usage()
 int main(int argc, char* argv[])
 {
   int c, start = 0, end = 0, limbs = 111, verbose = 0, nopLine = -1,
-      intelSyntax = 0, loop = 0, cpunum = -1;
+      intelSyntax = 0, loop = 0, cpunum = -1, maxPerms = 0;
   char *outFile = NULL;
   char *inFile = NULL;
   string signature = "add_n", prepend = "", append = "";
@@ -1364,6 +1365,7 @@ int main(int argc, char* argv[])
     {"intel",     no_argument,       0, 'i'},
     {"limbs",     required_argument, 0, 'l'},
     {"loop",      required_argument, 0, 'p'},
+    {"max-perms", required_argument, 0, 'm'},
     {"nop",       required_argument, 0, 'n'},
     {"out",       required_argument, 0, 'o'},
     {"prepend",   required_argument, 0, 'q'},
@@ -1373,7 +1375,7 @@ int main(int argc, char* argv[])
     {0,           0,                 0, 0  }
   };
 
-  while ((c = getopt_long(argc, argv, "a:c:hil:p:n:o:q:r:s:v::",
+  while ((c = getopt_long(argc, argv, "a:c:hil:p:m:n:o:q:r:s:v::",
         long_options, &option_index)) != -1) {
 
     switch (c) {
@@ -1408,6 +1410,13 @@ int main(int argc, char* argv[])
         if (limbs == 0)
           printf("# error: loop index not recognised, not using\n");
         printf("# optimising loop %d\n", loop);
+        break;
+
+      case 'm':
+        maxPerms = std::strtol(optarg, NULL, 10);
+        if (maxPerms == 0)
+          printf("# error: max number of permutations not recognised, not using\n");
+        printf("# trying at most %d permutations\n", maxPerms);
         break;
 
       case 'n':
@@ -1470,5 +1479,5 @@ int main(int argc, char* argv[])
   }
 
   return ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax,
-      signature, nopLine, loop, prepend, append);
+      signature, nopLine, loop, prepend, append, maxPerms);
 }
