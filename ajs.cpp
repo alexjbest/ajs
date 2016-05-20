@@ -785,8 +785,7 @@ class ajs {
     }
 
     // adds the function func with the permutation perm applied to the X86Assembler
-    static void addFunc(vector<Line>& func, list<int>& perm, int numLabels,
-        int verbose)
+    static void addFunc(vector<Line>& func, list<int>& perm, int numLabels)
     {
       Label labels[numLabels];
       for (int i = 0; i < numLabels; i++)
@@ -809,7 +808,7 @@ class ajs {
           }
           cursor[0] = curLine.getByte();
           cursor += 1;
-          if (verbose >= 2)
+          if (assembler.hasLogger())
             assembler.getLogger()->logFormat(Logger::kStyleDefault,"\t.byte\t%d\n", curLine.getByte());
         }
         if (!curLine.isInstruction())
@@ -842,7 +841,7 @@ class ajs {
         {
           assembler.reset();
 
-          addFunc(func, perm, numLabels, verbose);
+          addFunc(func, perm, numLabels);
 
           void* funcPtr = assembler.make();
           times[i] = callFunc(funcPtr, target, verbose, overhead,
@@ -1243,7 +1242,7 @@ class ajs {
           bestTime);
       assembler.reset();
       assembler.setLogger(&logger);
-      addFunc(func, bestPerm, numLabels, 1);
+      addFunc(func, bestPerm, numLabels);
       printf("\n\n");
 
       // write output using asmjit's logger
@@ -1256,7 +1255,7 @@ class ajs {
         logger.logFormat(Logger::kStyleComment, "# This file was produced by ajs, the MPIR assembly superoptimiser\n");
         logger.logFormat(Logger::kStyleComment, "# %lf cycles/%lu limbs\n", bestTime, limbs);
         logger.logFormat(Logger::kStyleComment, "%s\n", prepend.c_str());
-        addFunc(func, bestPerm, numLabels, 1);
+        addFunc(func, bestPerm, numLabels);
         logger.logFormat(Logger::kStyleComment, "%s\n", append.c_str());
         fclose(of);
       }
