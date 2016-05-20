@@ -809,7 +809,7 @@ class ajs {
           }
           cursor[0] = curLine.getByte();
           cursor += 1;
-          if (verbose)
+          if (verbose >= 2)
             assembler.getLogger()->logFormat(Logger::kStyleDefault,"\t.byte\t%d\n", curLine.getByte());
         }
         if (!curLine.isInstruction())
@@ -1028,7 +1028,7 @@ class ajs {
           if (level == to - from + 1)
           {
             count++;
-            if (verbose)
+            if (verbose >= 2)
               printf("\n# timing sequence:\n");
             // time this permutation
             double newTime = timeFunc(func, perm, numLabels,
@@ -1110,8 +1110,8 @@ class ajs {
         timeFunc(func, idPerm, numLabels, 0, 0, 0, arg1, arg2,
             arg3, arg4, arg5, arg6);
 
-      // set logger if we are in verbose mode
-      if (verbose)
+      // set logger if we have verbosity at least 2
+      if (verbose >= 2)
         assembler.setLogger(&logger);
 
       Line ret(X86Util::getInstIdByName("ret"));
@@ -1305,7 +1305,7 @@ void display_usage()
 "                            addmul_2:     mpn, mpn, length, mpn (length 2)    \n"
 "                            mul_basecase: mpn, mpn, length, mpn, length       \n"
 "                          If no signature is specified add_n is used          \n"
-"  --verbose               Print out all sequences tried                       \n"
+"  --verbose               Set verbosity level (use -vv...v for higher levels) \n"
 "  --out <file>            Write the final output to <file>                    \n"
 "  --append <string>       When outputing to file append <string> to the end   \n"
 "  --prepend <string> (q)  When outputing to file prepend <string> at the start\n"
@@ -1358,11 +1358,11 @@ int main(int argc, char* argv[])
     {"prepend",   required_argument, 0, 'q'},
     {"range",     required_argument, 0, 'r'},
     {"signature", required_argument, 0, 's'},
-    {"verbose",   no_argument,       0, 'v'},
+    {"verbose",   optional_argument, 0, 'v'},
     {0,           0,                 0, 0  }
   };
 
-  while ((c = getopt_long(argc, argv, "a:c:hil:p:n:o:q:r:s:v",
+  while ((c = getopt_long(argc, argv, "a:c:hil:p:n:o:q:r:s:v::",
         long_options, &option_index)) != -1) {
 
     switch (c) {
@@ -1432,7 +1432,9 @@ int main(int argc, char* argv[])
 
       case 'v':
         verbose = 1;
-        printf("# verbose mode on\n");
+        if (optarg)
+          verbose += string(optarg).length();
+        printf("# verbosity level %d\n", verbose);
         break;
 
       case 'a':
