@@ -18,7 +18,7 @@ ASMJITOBJS = asmjit/base/assembler.o asmjit/base/compiler.o \
              asmjit/x86/x86operand_regs.o
 
 
-AJSOBJS = line.o
+AJSOBJS = line.o transform.o
 
 all: $(LIBASMJIT) $(AJSOBJS) ajs.cpp
 	$(CC) -o ajs ajs.cpp $(AJSOBJS) -L. -lasmjit $(INC) $(CFLAGS)

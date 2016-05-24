@@ -1,3 +1,6 @@
+#ifndef LINE_H
+#define LINE_H
+
 #include <asmjit/asmjit.h>
 #include <vector>
 #include <stdlib.h>
@@ -25,7 +28,7 @@ class Line
     uint32_t getByte() const;
     uint32_t getAlign() const;
     asmjit::Operand getOp(int i) const;
-    const asmjit::Operand* getOpPtr(int i) const;
+    asmjit::Operand* getOpPtr(int i) const;
     std::vector<int>& getDependencies();
     std::vector<asmjit::X86Reg> getRegsIn() const;
     std::vector<asmjit::X86Reg> getRegsOut() const;
@@ -47,3 +50,4 @@ class Line
     friend std::ostream& operator << (std::ostream& outs, const Line& l);
 };
 
+#endif

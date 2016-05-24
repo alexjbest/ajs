@@ -17,6 +17,7 @@
 #include <sched.h>
 #include <unistd.h>
 #include "line.h"
+#include "transform.h"
 #include "utils.h"
 
 #define regreg(N)  if (name == #N) return N
@@ -457,33 +458,90 @@ class ajs {
         l.addRegOut(rsp);
     }
 
-    // adds newLine's dependencies on existing lines in func
-    static void addDeps(vector<Line>::iterator newLine, vector<Line>& func)
+    static int addTransformBy(Line& line1, int index1, Line& line2, int index2, vector<Transform>& transforms)
     {
-      // try to determine other dependencies
-      int index = 0;
-      for (vector<Line>::iterator prevLine = func.begin(); prevLine != newLine;
-          ++prevLine, index++)
+      if (!line1.isInstruction() || !line2.isInstruction())
+        return 0;
+      X86Mem* mem = nullptr;
+      if (line1.getInstruction() == X86Util::getInstIdByName("lea"))
+        mem = static_cast<X86Mem*>(line1.getOpPtr(1));
+      if (line1.getInstruction() == X86Util::getInstIdByName("mov"))
       {
-        if (dependsOn(newLine, prevLine, func))
-        {
-          if (find(newLine->getDependencies().begin(),
-                newLine->getDependencies().end(), index) ==
-              newLine->getDependencies().end())
-          {
-            newLine->addDependency(index);
+        if (line1.getOp(0).isMem())
+          mem = static_cast<X86Mem*>(line1.getOpPtr(0));
+        else if (line1.getOp(1).isMem())
+          mem = static_cast<X86Mem*>(line1.getOpPtr(1));
+      }
+      if (mem != nullptr)
+      {
+        int32_t base = 0;
+        if (line2.getInstruction() == X86Util::getInstIdByName("inc"))
+          base = 1;
+        if (line2.getInstruction() == X86Util::getInstIdByName("dec"))
+          base = -1;
+        if (line2.getInstruction() == X86Util::getInstIdByName("add"))
+          base = static_cast<Imm*>(line2.getOpPtr(1))->getUInt32();
+        if (line2.getInstruction() == X86Util::getInstIdByName("sub"))
+          base = -static_cast<Imm*>(line2.getOpPtr(1))->getUInt32();
 
-            // we can now remove any of prevLine's dependencies from newLine
-            // TODO does this make things faster?
-            std::vector<int>::iterator position =
-              newLine->getDependencies().begin();
-            for (vector<int>::iterator ci2 =
-                prevLine->getDependencies().begin(); ci2 !=
-                prevLine->getDependencies().end(); ++ci2)
+        if (base == 0)
+          return 0;
+
+        if (index1 < index2)
+          base = -base;
+
+        int32_t adjustment = 0;
+        X86GpReg* reg = static_cast<X86GpReg*>(line2.getOpPtr(0));
+        if (mem->getBase() == reg->getRegIndex())
+          adjustment += base;
+        if (mem->getIndex() == reg->getRegIndex())
+          adjustment += base << mem->getShift();
+
+        if (adjustment != 0)
+        {
+          transforms.insert(transforms.end(), Transform(index1, index2, Transform::changeDisp, adjustment));
+          return 1;
+        }
+      }
+      return 0;
+    }
+
+    // add dependency and transform info to lines in func
+    static void addDepsAndTransforms(vector<Line>& func, vector<Transform>& transforms)
+    {
+      int index2 = 0;
+      for (vector<Line>::iterator line2 = func.begin(); line2 != func.end();
+          ++line2, index2++)
+      {
+        // try to determine other dependencies
+        int index1 = 0;
+        for (vector<Line>::iterator line1 = func.begin(); line1 != line2;
+            ++line1, index1++)
+        {
+          if (addTransformBy(*line1, index1, *line2, index2, transforms))
+            continue;
+          if (addTransformBy(*line2, index2, *line1, index1, transforms))
+            continue;
+          if (dependsOn(line2, line1, func))
+          {
+            if (find(line2->getDependencies().begin(),
+                  line2->getDependencies().end(), index1) ==
+                line2->getDependencies().end())
             {
-              position = std::find(position, newLine->getDependencies().end(), *ci2);
-              if (position != newLine->getDependencies().end())
-                position = newLine->getDependencies().erase(position);
+              line2->addDependency(index1);
+
+              // we can now remove any of prevLine's dependencies from newLine
+              // TODO does this make things faster?
+              std::vector<int>::iterator position =
+                line2->getDependencies().begin();
+              for (vector<int>::iterator ci2 =
+                  line1->getDependencies().begin(); ci2 !=
+                  line1->getDependencies().end(); ++ci2)
+              {
+                position = std::find(position, line2->getDependencies().end(), *ci2);
+                if (position != line2->getDependencies().end())
+                  position = line2->getDependencies().erase(position);
+              }
             }
           }
         }
@@ -494,7 +552,7 @@ class ajs {
     // imput or stdin if this is null and converts them to Lines which are
     // returned in func
     static int loadFunc(vector<Line>& func, const char* input,
-        const int intelSyntax)
+        const int intelSyntax, vector<Transform>& transforms)
     {
       map<string, Label> labels;
 
@@ -695,8 +753,7 @@ class ajs {
 
       assembler.reset();
 
-      for (vector<Line>::iterator i = func.begin(); i != func.end(); ++i)
-        addDeps(i, func);
+      addDepsAndTransforms(func, transforms);
 
       return labels.size();
     }
@@ -797,14 +854,22 @@ class ajs {
     }
 
     // adds the function func with the permutation perm applied to the X86Assembler
-    static void addFunc(vector<Line>& func, list<int>& perm, int numLabels)
+    static void addFunc(vector<Line>& func, list<int>& perm, int numLabels, vector<Transform>& transforms)
     {
       Label labels[numLabels];
       for (int i = 0; i < numLabels; i++)
         labels[i] = assembler.newLabel();
-      for (list<int>::const_iterator ci = perm.begin(); ci != perm.end(); ++ci)
+      for (list<int>::iterator ci = perm.begin(); ci != perm.end(); ++ci)
       {
-        Line& curLine = func[*ci];
+        Line curLine = func[*ci];
+        for (vector<Transform>::const_iterator ti = transforms.begin(); ti != transforms.end(); ++ti)
+        {
+          if (*ci == ti->a) // possibly have a transform to make
+          {
+            if ((find(perm.begin(), ci, ti->b) != ci) ^ (ti->b < ti->a)) // have a transform to make
+              ti->apply(curLine);
+          }
+        }
         if (curLine.isAlign()) {
           assembler.align(kAlignCode, curLine.getAlign());
         }
@@ -843,7 +908,7 @@ class ajs {
 
     // makes a callable function using assembler then times the generated function with callFunc.
     static double timeFunc(vector<Line>& func, list<int>& perm,
-        int numLabels, uint64_t target, const int verbose, double overhead,
+        int numLabels, uint64_t target, const int verbose, double overhead, vector<Transform>& transforms,
         uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4,
         uint64_t arg5, uint64_t arg6)
     {
@@ -853,7 +918,7 @@ class ajs {
         {
           assembler.reset();
 
-          addFunc(func, perm, numLabels);
+          addFunc(func, perm, numLabels, transforms);
 
           void* funcPtr = assembler.make();
           times[i] = callFunc(funcPtr, target, verbose, overhead,
@@ -960,7 +1025,7 @@ class ajs {
 
     static double tryPerms(list<int>& bestPerm, vector<Line>& func,
         const int numLabels, const int from, const int to, const int verbose,
-        const uint64_t overhead, const int maxPerms, uint64_t arg1,
+        const uint64_t overhead, const int maxPerms, vector<Transform>& transforms, uint64_t arg1,
         uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
       int count = 0, level = 0;
@@ -973,7 +1038,7 @@ class ajs {
 
 
       double bestTime = timeFunc(func, perm, numLabels, 0,
-          verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
+          verbose, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
       bestPerm = perm;
       printf("# original sequence: %lf\n", bestTime);
 
@@ -1043,7 +1108,7 @@ class ajs {
               printf("\n# timing sequence:\n");
             // time this permutation
             double newTime = timeFunc(func, perm, numLabels,
-                bestTime, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
+                bestTime, verbose, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
             if (bestTime == 0 || bestTime - newTime > 0.25L)
             {
               printf("# better sequence found: %lf", newTime);
@@ -1094,8 +1159,9 @@ class ajs {
     // to insert up to 3 nops) and returns the valid reordering of func that
     // executes in the least time.
     static double superOptimise(list<int>& bestPerm, vector<Line>& func,
-        const int numLabels, const int from, const int to, const uint64_t limbs,
-        const int verbose, string signature, int nopLine = -1, const int maxPerms = 0)
+        const int numLabels, const int from, const int to, const uint64_t
+        limbs, const int verbose, string signature, vector<Transform>&
+        transforms, int nopLine = -1, const int maxPerms = 0)
     {
       double bestTime = 0, overhead = 0;
       uint64_t *mpn1, *mpn2, *mpn3, *mpn4;
@@ -1118,7 +1184,7 @@ class ajs {
 
       // 'warm up' the processor?
       for (int i = 0; i < 100000 && !exiting; i++)
-        timeFunc(func, idPerm, numLabels, 0, 0, 0, arg1, arg2,
+        timeFunc(func, idPerm, numLabels, 0, 0, 0, transforms, arg1, arg2,
             arg3, arg4, arg5, arg6);
 
       // set logger if we have verbosity at least 2
@@ -1129,10 +1195,10 @@ class ajs {
       vector<Line> emptyFunc(1, ret);
       list<int> emptyPerm(1, 0);
       overhead = timeFunc(emptyFunc, emptyPerm, 0,
-          bestTime, verbose, overhead, arg1, arg2, arg3, arg4, arg5, arg6);
+          bestTime, verbose, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
 
       bestTime = tryPerms(bestPerm, func, numLabels, from, to, verbose,
-          overhead, maxPerms, arg1, arg2, arg3, arg4, arg5, arg6);
+          overhead, maxPerms, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
 
       // optionally add nops and time again
       list<int> nopPerm;
@@ -1146,13 +1212,12 @@ class ajs {
           pos = func.insert(pos, Line(X86Util::getInstIdByName("nop")));
 
           for (; pos != func.end(); ++pos)
-          {
             pos->getDependencies().clear();
-            addDeps(pos, func);
-          }
+          // TODO clear transforms here
+          addDepsAndTransforms(func, transforms);
 
           double bestNopTime = tryPerms(nopPerm, func,
-              numLabels, from, to, verbose, overhead, maxPerms, arg1, arg2,
+              numLabels, from, to, verbose, overhead, maxPerms, transforms, arg1, arg2,
               arg3, arg4, arg5, arg6);
           if (bestNopTime < bestTime)
           {
@@ -1217,8 +1282,9 @@ class ajs {
       // Create the functions we will work with
       vector<Line> func;
       list<int> bestPerm;
+      vector<Transform> transforms;
       // load original from the file given in arguments
-      numLabels = loadFunc(func, file, intelSyntax);
+      numLabels = loadFunc(func, file, intelSyntax, transforms);
 
       // returned if something went wrong when loading
       if (numLabels == -1)
@@ -1242,8 +1308,9 @@ class ajs {
         exit(EXIT_FAILURE);
       }
 
+
       double bestTime = superOptimise(bestPerm, func,
-          numLabels, start, end, limbs, verbose, signature, nopLine, maxPerms);
+          numLabels, start, end, limbs, verbose, signature, transforms, nopLine, maxPerms);
 
       list<int>::iterator startIt = bestPerm.begin();
       advance(startIt, start);
@@ -1254,7 +1321,7 @@ class ajs {
           bestTime);
       assembler.reset();
       assembler.setLogger(&logger);
-      addFunc(func, bestPerm, numLabels);
+      addFunc(func, bestPerm, numLabels, transforms);
       printf("\n\n");
 
       // write output using asmjit's logger
@@ -1267,7 +1334,7 @@ class ajs {
         logger.logFormat(Logger::kStyleComment, "# This file was produced by ajs, the MPIR assembly superoptimiser\n");
         logger.logFormat(Logger::kStyleComment, "# %lf cycles/%lu limbs\n", bestTime, limbs);
         logger.logFormat(Logger::kStyleComment, "%s\n", prepend.c_str());
-        addFunc(func, bestPerm, numLabels);
+        addFunc(func, bestPerm, numLabels, transforms);
         logger.logFormat(Logger::kStyleComment, "%s\n", append.c_str());
         fclose(of);
       }
