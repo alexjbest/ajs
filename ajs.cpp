@@ -480,9 +480,9 @@ class ajs {
         if (line2.getInstruction() == X86Util::getInstIdByName("dec"))
           base = -1;
         if (line2.getInstruction() == X86Util::getInstIdByName("add"))
-          base = static_cast<Imm*>(line2.getOpPtr(1))->getUInt32();
+          base = static_cast<Imm*>(line2.getOpPtr(1))->getInt32();
         if (line2.getInstruction() == X86Util::getInstIdByName("sub"))
-          base = -static_cast<Imm*>(line2.getOpPtr(1))->getUInt32();
+          base = -static_cast<Imm*>(line2.getOpPtr(1))->getInt32();
 
         if (base == 0)
           return 0;
