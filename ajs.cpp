@@ -1369,7 +1369,7 @@ void display_usage()
 "  --nop <number>          Additionally try adding nops at line <number>       \n"
 "  --range <start>-<end>   Only superoptimise the lines <start> to             \n"
 "                          <end> (inclusive)                                   \n"
-"  --loop <number>         Optimise loop <number> only (overrides range)       \n"
+"  --loop <number> (L)     Optimise loop <number> only (overrides range)       \n"
 "  --max-perms <number>    Try at most <number> permutations for each function \n"
 "  --signature <signature> Give the function inputs of the format <signature>, \n"
 "                          where the possible signatures are as follows        \n"
@@ -1387,7 +1387,7 @@ void display_usage()
 "  --verbose               Set verbosity level (use -vv...v for higher levels) \n"
 "  --out <file>            Write the final output to <file>                    \n"
 "  --append <string>       When outputing to file append <string> to the end   \n"
-"  --prepend <string> (q)  When outputing to file prepend <string> at the start\n"
+"  --prepend <string>      When outputing to file prepend <string> at the start\n"
 "                                                                              \n"
 "(abbreviations can be used e.g. --sig or just -s (with a single -))           \n"
 "                                                                              \n"
@@ -1431,18 +1431,18 @@ int main(int argc, char* argv[])
     {"help",      no_argument,       0, 'h'},
     {"intel",     no_argument,       0, 'i'},
     {"limbs",     required_argument, 0, 'l'},
-    {"loop",      required_argument, 0, 'p'},
+    {"loop",      required_argument, 0, 'L'},
     {"max-perms", required_argument, 0, 'm'},
     {"nop",       required_argument, 0, 'n'},
     {"out",       required_argument, 0, 'o'},
-    {"prepend",   required_argument, 0, 'q'},
+    {"prepend",   required_argument, 0, 'p'},
     {"range",     required_argument, 0, 'r'},
     {"signature", required_argument, 0, 's'},
     {"verbose",   optional_argument, 0, 'v'},
     {0,           0,                 0, 0  }
   };
 
-  while ((c = getopt_long(argc, argv, "a:c:hil:p:m:n:o:q:r:s:v::",
+  while ((c = getopt_long(argc, argv, "a:c:hil:L:m:n:o:p:r:s:v::",
         long_options, &option_index)) != -1) {
 
     switch (c) {
@@ -1472,7 +1472,7 @@ int main(int argc, char* argv[])
         printf("# optimising for %d limbs\n", limbs);
         break;
 
-      case 'p':
+      case 'L':
         loop = std::strtol(optarg, NULL, 10);
         if (limbs == 0)
           printf("# error: loop index not recognised, not using\n");
@@ -1528,7 +1528,7 @@ int main(int argc, char* argv[])
         append = string(optarg);
         break;
 
-      case 'q':
+      case 'p':
         prepend = string(optarg);
         break;
     }
