@@ -112,5 +112,19 @@ void Line::addDependency(int dep) {
 
 std::ostream& operator << (std::ostream& outs, const Line& l)
 {
-  return outs << "(" << l.instruction << "," << l.align << "," << l.label << "," << (int)l.byte <<")";
+  if (l.isInstruction())
+    outs << "inst: " << l.instruction;
+  if (l.isAlign())
+    outs << "alig: " << l.align;
+  if (l.isLabel())
+    outs << "labl: " << l.label;
+  if (l.isByte())
+    outs << "byte: " << (int)l.byte;
+  if (l.dependencies.size())
+  {
+    outs << " deps: ";
+    for (std::vector<int>::const_iterator i = l.dependencies.begin(); i != l.dependencies.end(); ++i)
+      outs << *i << ",";
+  }
+  return outs;
 }
