@@ -548,6 +548,29 @@ class ajs {
       }
     }
 
+    static void incDeps(vector<Line>::iterator start, vector<Line>::iterator end, int index)
+    {
+      for (vector<Line>::iterator i = start; i != end; ++i)
+      {
+        for (vector<int>::iterator dep = i->getDependencies().begin(); dep != i->getDependencies().end(); ++dep)
+        {
+          if (*dep >= index)
+            (*dep)++;
+        }
+      }
+    }
+
+    static void incTransforms(vector<Transform>& transforms, int index)
+    {
+      for (vector<Transform>::iterator i = transforms.begin(); i != transforms.end(); ++i)
+      {
+        if (i->a >= index)
+          (i->a)++;
+        if (i->b >= index)
+          (i->b)++;
+      }
+    }
+
     // core parsing function, loads lines from either the filename given in
     // imput or stdin if this is null and converts them to Lines which are
     // returned in func
@@ -555,6 +578,7 @@ class ajs {
         const int intelSyntax, vector<Transform>& transforms)
     {
       map<string, Label> labels;
+      map<int, vector<int>> depGroups;
 
       // if we are given a file path use it, otherwise try stdin.
       ifstream ifs;
@@ -741,9 +765,12 @@ class ajs {
 
             for (vector<string>::const_iterator ci = deps.begin(); ci != deps.end(); ++ci)
             {
-              int newDep = atoi(ci->c_str()) - 1;
-              //assert(newDep < index); // make sure the user gave us a valid sequence
-              newLine.addDependency(newDep);
+              int group = atoi(ci->c_str());
+              if (depGroups.count(group) == 0)
+                depGroups[group] = vector<int>();
+              for (vector<int>::iterator dep = depGroups[group].begin(); dep != depGroups[group].end(); ++dep)
+                newLine.addDependency(*dep);
+              depGroups[group].insert(depGroups[group].end(), func.size());
             }
           }
 
@@ -1159,7 +1186,7 @@ class ajs {
     // to insert up to 3 nops) and returns the valid reordering of func that
     // executes in the least time.
     static double superOptimise(list<int>& bestPerm, vector<Line>& func,
-        const int numLabels, const int from, const int to, const uint64_t
+        const int numLabels, int from, int to, const uint64_t
         limbs, const int verbose, string signature, vector<Transform>&
         transforms, int nopLine = -1, const int maxPerms = 0)
     {
@@ -1211,10 +1238,11 @@ class ajs {
           pos += nopLine;
           pos = func.insert(pos, Line(X86Util::getInstIdByName("nop")));
 
-          for (; pos != func.end(); ++pos)
-            pos->getDependencies().clear();
-          // TODO clear transforms here
-          addDepsAndTransforms(func, transforms);
+          incDeps(pos, func.end(), nopLine);
+          incTransforms(transforms, nopLine);
+
+          if (nopLine >= from && nopLine <= to)
+            to++;
 
           double bestNopTime = tryPerms(nopPerm, func,
               numLabels, from, to, verbose, overhead, maxPerms, transforms, arg1, arg2,
