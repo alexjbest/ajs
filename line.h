@@ -28,7 +28,7 @@ class Line
     uint32_t getByte() const;
     uint32_t getAlign() const;
     asmjit::Operand getOp(int i) const;
-    asmjit::Operand* getOpPtr(int i) const;
+    asmjit::Operand* getOpPtr(int i);
     std::vector<int>& getDependencies();
     std::vector<asmjit::X86Reg> getRegsIn() const;
     std::vector<asmjit::X86Reg> getRegsOut() const;

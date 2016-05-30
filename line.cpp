@@ -26,7 +26,7 @@ asmjit::Operand Line::getOp(int i) const {
   return ops[i];
 }
 
-const asmjit::Operand* Line::getOpPtr(int i) const {
+asmjit::Operand* Line::getOpPtr(int i){
   assert(i < MAX_OPS);
   return &ops[i];
 }
