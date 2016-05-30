@@ -734,7 +734,7 @@ class ajs {
           }
 
           // check for dependencies annotated in the source
-          if (parsed.size() > 0 && parsed[0].substr(0,5) == "#ajs:")
+          if (parsed.size() > 0 && parsed[0].at(0) == commentChar && parsed[0].substr(1,4) == "ajs:")
           {
             std::vector<std::string> deps = split(parsed[0].substr(5), ',');
             parsed.erase(parsed.begin());
