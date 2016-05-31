@@ -749,6 +749,10 @@ class ajs {
               if (!intelSyntax)
                 reverse(args.begin(), args.end());
 
+              if (args.size() == 1 && (id == X86Util::getInstIdByName("shr") ||
+                    id == X86Util::getInstIdByName("shl")))
+                args.insert(args.end(), intelSyntax ? "1" : "$1");
+
               for (int i = 0; i < args.size(); i++)
                 newLine.setOp(i, getOpFromStr(args[i], labels, size, intelSyntax));
             }
