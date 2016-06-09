@@ -467,7 +467,11 @@ class ajs {
         l.addRegOut(rsp);
     }
 
-    static int addTransformBy(Line& line1, int index1, Line& line2, int index2, vector<Transform>& transforms)
+    // if Line1 and Line2 can be transforming swapped adds the corresponding
+    // Transform to transforms and returns 1
+    // Currently only lea/mov instructions can be transformed with add/sub/inc/dec
+    static int addTransformBy(Line& line1, int index1, Line& line2, int index2,
+        vector<Transform>& transforms)
     {
       if (!line1.isInstruction() || !line2.isInstruction())
         return 0;
@@ -1421,8 +1425,10 @@ class ajs {
         assembler.setLogger(&logger);
         FILE* of = fopen(outFile, "w");
         logger.setStream(of);
-        logger.logFormat(Logger::kStyleComment, "# This file was produced by ajs, the MPIR assembly superoptimiser\n");
-        logger.logFormat(Logger::kStyleComment, "# %lf cycles/%lu limbs\n", bestTime, limbs);
+        logger.logFormat(Logger::kStyleComment,
+            "# This file was produced by ajs, the MPIR assembly superoptimiser\n");
+        logger.logFormat(Logger::kStyleComment,
+            "# %lf cycles/%lu limbs\n", bestTime, limbs);
         logger.logFormat(Logger::kStyleComment, "%s\n", prepend.c_str());
         addFunc(func, bestPerm, numLabels, transforms);
         logger.logFormat(Logger::kStyleComment, "%s\n", append.c_str());
