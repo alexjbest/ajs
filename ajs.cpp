@@ -920,9 +920,9 @@ class ajs {
       qsort(times, trials, sizeof(int), comp);
       int prev = times[0];
       int i, diffs;
-      for (i = 0; verbose && i < trials; i++)
+      for (i = 0; (verbose || target % 10 == -1) && i < trials; i++)
         cout << times[i] << " ";
-      if (verbose)
+      if (verbose || target % 10 == -1)
         cout <<endl;
       for (i = 0, diffs = 0; i < trials; i++)
       {
@@ -1200,7 +1200,7 @@ class ajs {
               printf("\n# timing sequence:\n");
             // time this permutation
             double newTime = timeFunc(func, perm, numLabels,
-                bestTime, verbose, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+                count, verbose, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
             if (bestTime == 0 || bestTime - newTime > 0.25L)
             {
               printf("# better sequence found: %lf", newTime);
@@ -1275,7 +1275,7 @@ class ajs {
         idPerm.insert(idPerm.end(), i);
 
       // 'warm up' the processor?
-      for (int i = 0; i < 100000 && !exiting; i++)
+      for (int i = 0; i < 10000 && !exiting; i++)
         timeFunc(func, idPerm, numLabels, 0, 0, 0, transforms, arg1, arg2,
             arg3, arg4, arg5, arg6);
 
@@ -1458,16 +1458,16 @@ void display_usage()
 "Usage: ajs [options] [filename]                                               \n"
 "  If a filename is not specified ajs attempts to read its input from stdin    \n"
 "Options:                                                                      \n"
-"  --help                  Display this message                                \n"
-"  --cpu <number>          Run on cpu <number>                                 \n"
-"  --intel                 Parse input with Intel/YASM parser                  \n"
-"  --limbs <number>        Use mpns with <number> limbs when optimising        \n"
-"  --nop <number>          Additionally try adding nops at line <number>       \n"
-"  --range <start>-<end>   Only superoptimise the lines <start> to             \n"
-"                          <end> (inclusive)                                   \n"
-"  --loop <number> (L)     Optimise loop <number> only (overrides range)       \n"
-"  --max-perms <number>    Try at most <number> permutations for each function \n"
-"  --signature <signature> Give the function inputs of the format <signature>, \n"
+"  -h/--help               Display this message                                \n"
+"  -c/--cpu <number>       Run on cpu <number>                                 \n"
+"  -i/--intel              Parse input with Intel/YASM parser                  \n"
+"  -l/--limbs <number>     Use mpns with <number> limbs when optimising        \n"
+"  -n/--nop <number>       Additionally try adding nops at line <number>       \n"
+"  -r/--range <l1>-<l2>    Only superoptimise the lines <l1> to                \n"
+"                          <l2> (inclusive)                                    \n"
+"  -L/--loop <number>      Optimise loop <number> only (overrides range)       \n"
+"  -m/--max-perms <number> Try at most <number> permutations for each function \n"
+"  -s/--signature <sig>    Give the function inputs of the format <sig>,       \n"
 "                          where the possible signatures are as follows        \n"
 "                            double:       mpn, length                         \n"
 "                            store:        mpn, length, value (123124412)      \n"
@@ -1480,13 +1480,13 @@ void display_usage()
 "                            addmul_2:     mpn, mpn, length, mpn (length 2)    \n"
 "                            mul_basecase: mpn, mpn, length, mpn, length       \n"
 "                          If no signature is specified add_n is used          \n"
-"  --verbose               Set verbosity level (use -vv...v for higher levels) \n"
-"  --out <file>            Write the final output to <file>                    \n"
+"  -v/--verbose            Set verbosity level (use -vv...v for higher levels) \n"
+"  -o/--out <file>         Write the final output to <file>                    \n"
 "  -R/--remove-labels      Remove unused labels before optimising              \n"
-"  --append <string>       When outputing to file append <string> to the end   \n"
-"  --prepend <string>      When outputing to file prepend <string> at the start\n"
+"  -a/--append <string>    When outputing to file append <string> to the end   \n"
+"  -p/--prepend <string>   When outputing to file prepend <string> at the start\n"
 "                                                                              \n"
-"(abbreviations can be used e.g. --sig or just -s (with a single -))           \n"
+"(abbreviations can be used e.g. --sig)                                        \n"
 "                                                                              \n"
 "Examples:                                                                     \n"
 "  Basic usage:            ajs test.asm                                        \n"
