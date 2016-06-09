@@ -41,6 +41,7 @@ class ajs {
     static X86Assembler assembler;
     static FileLogger logger;
 
+    // Parses a string integer, detects hex or decimal and basic expressions e.g. 3-5
     static int64_t getVal(string val) {
       val = trim(val);
       if (val.substr(1, 4) == "word")
@@ -208,10 +209,10 @@ class ajs {
       }
     }
 
-    // returns the operand represented by a string
-    // i.e. an immediate value, label, register, or memory location
+    // returns the operand represented by a string i.e. an immediate value,
+    // label, register, or memory location
     static Operand getOpFromStr(string op, map<string, Label>& labels,
-        uint32_t size, int intelSyntax)
+        map<string, int>& useCounts, uint32_t size, int intelSyntax)
     {
       // bracket style depends on syntax used
       const char openBracket = intelSyntax ? '[' : '(';
@@ -229,7 +230,11 @@ class ajs {
         if (op.length() > 0)
         {
           if (labels.count(op) == 0)
+          {
             labels[op] = assembler.newLabel();
+            useCounts[op] = 0;
+          }
+          useCounts[op]++;
           return labels[op];
         }
       }
@@ -248,7 +253,11 @@ class ajs {
           if (op.length() > 0) // No, it's a label!
           {
             if (labels.count(op) == 0)
+            {
               labels[op] = assembler.newLabel();
+              useCounts[op] = 0;
+            }
+            useCounts[op]++;
             return labels[op];
           }
         }
@@ -258,8 +267,8 @@ class ajs {
     }
 
     // returns the intersection of two vectors of registers
-    static vector<X86Reg> intersection(const vector<X86Reg>& v1, const
-        vector<X86Reg>& v2)
+    static vector<X86Reg> intersection(const vector<X86Reg>& v1,
+        const vector<X86Reg>& v2)
     {
       vector<X86Reg> in;
       for (vector<X86Reg>::const_iterator ci1 = v1.begin(); ci1 != v1.end();
@@ -548,26 +557,46 @@ class ajs {
       }
     }
 
-    static void incDeps(vector<Line>::iterator start, vector<Line>::iterator end, int index)
+    static void removeTransforms(vector<Transform>& transforms, int index)
+    {
+      for (vector<Transform>::iterator i = transforms.begin(); i != transforms.end(); ++i)
+      {
+        //vector<int>& v = i->getDependencies();
+        //v.erase(std::remove_if(v.begin(), v.end(), std::bind1st(std::equal_to<int>(), index)), v.end());
+      }
+    }
+
+    static void removeDeps(vector<Line>::iterator start, vector<Line>::iterator end,
+        int index)
+    {
+      for (vector<Line>::iterator i = start; i != end; ++i)
+      {
+        vector<int>* v = &(i->getDependencies());
+        v->erase(std::remove(v->begin(), v->end(), index), v->end());
+      }
+    }
+
+    static void shiftDeps(vector<Line>::iterator start, vector<Line>::iterator end,
+        int index, int shift)
     {
       for (vector<Line>::iterator i = start; i != end; ++i)
       {
         for (vector<int>::iterator dep = i->getDependencies().begin(); dep != i->getDependencies().end(); ++dep)
         {
           if (*dep >= index)
-            (*dep)++;
+            (*dep) += shift;
         }
       }
     }
 
-    static void incTransforms(vector<Transform>& transforms, int index)
+    static void shiftTransforms(vector<Transform>& transforms, int index, int shift)
     {
       for (vector<Transform>::iterator i = transforms.begin(); i != transforms.end(); ++i)
       {
         if (i->a >= index)
-          (i->a)++;
+          (i->a) += shift;
         if (i->b >= index)
-          (i->b)++;
+          (i->b) += shift;
       }
     }
 
@@ -575,9 +604,10 @@ class ajs {
     // imput or stdin if this is null and converts them to Lines which are
     // returned in func
     static int loadFunc(vector<Line>& func, const char* input,
-        const int intelSyntax, vector<Transform>& transforms)
+        const int intelSyntax, vector<Transform>& transforms, int removeLabels)
     {
-      map<string, Label> labels;
+      map<string, Label> labels; // map of label names to Label objects
+      map<string, int> useCounts;
       map<int, vector<int>> depGroups;
 
       // if we are given a file path use it, otherwise try stdin.
@@ -629,7 +659,10 @@ class ajs {
           {
             string label = parsed[0].substr(0, parsed[0].size() - 1);
             if (labels.count(label) == 0)
+            {
               labels[label] = assembler.newLabel();
+              useCounts[label] = 0;
+            }
 
             newLine.setLabel(labels[label].getId());
 
@@ -749,12 +782,13 @@ class ajs {
               if (!intelSyntax)
                 reverse(args.begin(), args.end());
 
+              // if we have shr/shl with only a single argument add the argument 1 for asmjit
               if (args.size() == 1 && (id == X86Util::getInstIdByName("shr") ||
                     id == X86Util::getInstIdByName("shl")))
                 args.insert(args.end(), intelSyntax ? "1" : "$1");
 
               for (int i = 0; i < args.size(); i++)
-                newLine.setOp(i, getOpFromStr(args[i], labels, size, intelSyntax));
+                newLine.setOp(i, getOpFromStr(args[i], labels, useCounts, size, intelSyntax));
             }
 
             addRegsRead(newLine);
@@ -783,6 +817,29 @@ class ajs {
       }
 
       assembler.reset();
+
+      // Remove unused labels
+      for (map<string, Label>::iterator i = labels.begin(); removeLabels &&
+          i != labels.end(); ++i)
+      {
+        if (useCounts[i->first] == 0)
+        {
+          int index = 0;
+          vector<Line>::iterator j = func.begin();
+          for (; j != func.end(); index++, ++j)
+          {
+            if (j->isLabel() && (j->getLabel() == i->second.getId()))
+            {
+              j = func.erase(j);
+              break;
+            }
+          }
+
+          removeDeps(j, func.end(), index);
+
+          shiftDeps(j, func.end(), index, -1);
+        }
+      }
 
       addDepsAndTransforms(func, transforms);
 
@@ -930,7 +987,7 @@ class ajs {
         assembler.emit(curLine.getInstruction(), curLine.getOp(0), curLine.getOp(1),
             curLine.getOp(2));
       }
-      if (numLabels > 0)
+      if (0 && numLabels > 0)
       {
         printf("error: %d label(s) not bound, are all label names correct?\n", numLabels);
         exit(EXIT_FAILURE);
@@ -1235,15 +1292,15 @@ class ajs {
       list<int> nopPerm;
       if (nopLine != -1)
       {
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 2; i++)
         {
           printf("# trying %d nop(s)\n", i + 1);
           vector<Line>::iterator pos = func.begin();
           pos += nopLine;
           pos = func.insert(pos, Line(X86Util::getInstIdByName("nop")));
 
-          incDeps(pos, func.end(), nopLine);
-          incTransforms(transforms, nopLine);
+          shiftDeps(pos, func.end(), nopLine, 1);
+          shiftTransforms(transforms, nopLine, 1);
 
           if (nopLine >= from && nopLine <= to)
             to++;
@@ -1304,7 +1361,8 @@ class ajs {
     static int run(const char* file, int start, int end, const uint64_t limbs,
         const char* outFile, const int verbose, const int intelSyntax,
         const string signature, const int nopLine, const int loop,
-        const string prepend, const string append, const int maxPerms)
+        const string prepend, const string append, const int maxPerms,
+        const int removeLabels)
     {
       int numLabels = 0;
 
@@ -1316,7 +1374,7 @@ class ajs {
       list<int> bestPerm;
       vector<Transform> transforms;
       // load original from the file given in arguments
-      numLabels = loadFunc(func, file, intelSyntax, transforms);
+      numLabels = loadFunc(func, file, intelSyntax, transforms, removeLabels);
 
       // returned if something went wrong when loading
       if (numLabels == -1)
@@ -1418,6 +1476,7 @@ void display_usage()
 "                          If no signature is specified add_n is used          \n"
 "  --verbose               Set verbosity level (use -vv...v for higher levels) \n"
 "  --out <file>            Write the final output to <file>                    \n"
+"  -R/--remove-labels      Remove unused labels before optimising              \n"
 "  --append <string>       When outputing to file append <string> to the end   \n"
 "  --prepend <string>      When outputing to file prepend <string> at the start\n"
 "                                                                              \n"
@@ -1444,7 +1503,7 @@ void display_usage()
 int main(int argc, char* argv[])
 {
   int c, start = 0, end = 0, limbs = 111, verbose = 0, nopLine = -1,
-      intelSyntax = 0, loop = 0, cpunum = -1, maxPerms = 0;
+      intelSyntax = 0, loop = 0, cpunum = -1, maxPerms = 0, removeLabels = 0;
   char *outFile = NULL;
   char *inFile = NULL;
   string signature = "add_n", prepend = "", append = "";
@@ -1458,23 +1517,24 @@ int main(int argc, char* argv[])
   int this_option_optind = optind ? optind : 1;
   int option_index = 0;
   static struct option long_options[] = {
-    {"append",    required_argument, 0, 'a'},
-    {"cpu",       required_argument, 0, 'c'},
-    {"help",      no_argument,       0, 'h'},
-    {"intel",     no_argument,       0, 'i'},
-    {"limbs",     required_argument, 0, 'l'},
-    {"loop",      required_argument, 0, 'L'},
-    {"max-perms", required_argument, 0, 'm'},
-    {"nop",       required_argument, 0, 'n'},
-    {"out",       required_argument, 0, 'o'},
-    {"prepend",   required_argument, 0, 'p'},
-    {"range",     required_argument, 0, 'r'},
-    {"signature", required_argument, 0, 's'},
-    {"verbose",   optional_argument, 0, 'v'},
-    {0,           0,                 0, 0  }
+    {"append",        required_argument, 0, 'a'},
+    {"cpu",           required_argument, 0, 'c'},
+    {"help",          no_argument,       0, 'h'},
+    {"intel",         no_argument,       0, 'i'},
+    {"limbs",         required_argument, 0, 'l'},
+    {"loop",          required_argument, 0, 'L'},
+    {"max-perms",     required_argument, 0, 'm'},
+    {"nop",           required_argument, 0, 'n'},
+    {"out",           required_argument, 0, 'o'},
+    {"prepend",       required_argument, 0, 'p'},
+    {"range",         required_argument, 0, 'r'},
+    {"remove-labels", no_argument,       0, 'R'},
+    {"signature",     required_argument, 0, 's'},
+    {"verbose",       optional_argument, 0, 'v'},
+    {0,               0,                 0, 0  }
   };
 
-  while ((c = getopt_long(argc, argv, "a:c:hil:L:m:n:o:p:r:s:v::",
+  while ((c = getopt_long(argc, argv, "a:c:hil:L:m:n:o:p:r:Rs:v::",
         long_options, &option_index)) != -1) {
 
     switch (c) {
@@ -1544,6 +1604,13 @@ int main(int argc, char* argv[])
         }
         break;
 
+      case 'R':
+        {
+          removeLabels = 1;
+          printf("# removing unused labels\n");
+        }
+        break;
+
       case 's':
         signature = string(optarg);
         printf("# function signature %s\n", optarg);
@@ -1578,5 +1645,5 @@ int main(int argc, char* argv[])
   }
 
   return ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax,
-      signature, nopLine, loop, prepend, append, maxPerms);
+      signature, nopLine, loop, prepend, append, maxPerms, removeLabels);
 }
