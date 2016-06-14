@@ -6,5 +6,6 @@ addadd_n
 addlsh_n
 addmul_1
 addmul_2
+mod_1_n
 mul_basecase
 sqr_basecase
