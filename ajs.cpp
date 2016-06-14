@@ -1037,7 +1037,7 @@ class ajs {
     static void getArgs(uint64_t *mpn1, uint64_t *mpn2, uint64_t *mpn3,
         uint64_t *mpn4, const uint64_t limbs, string signature, uint64_t& arg1,
         uint64_t& arg2, uint64_t& arg3, uint64_t& arg4, uint64_t& arg5,
-        uint64_t& arg6)
+        uint64_t& arg6, mp_limb_t* db, mp_limb_t* rem)
     {
       if (signature == "double")
       {
@@ -1092,6 +1092,33 @@ class ajs {
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = limbs;
         arg4 = reinterpret_cast<uint64_t>(mpn3);
+      }
+      else if (signature.substr(0, 6) == "mod_1_")
+      {
+        mp_size_t j, k = signature.at(6) - '0';
+        mp_limb_t dummy, i, c, ds, d = 5806679768680879695ULL;
+
+        count_leading_zeros(c, d);
+        ds = d << c;
+
+        invert_limb(i, ds);
+
+        udiv_qrnnd_preinv(dummy, db[0], ((mp_limb_t) 1)<<c, 0, ds, i);  /* this is B%ds */
+
+        for (j = 1; j <= k; j++)
+        {
+          udiv_qrnnd_preinv(dummy, db[j], db[j - 1], 0, ds, i);
+          db[j - 1]>>=c;
+        }
+
+        /* now db[j] = B^j % d */
+
+        db[k]>>=c;
+
+        arg1 = reinterpret_cast<uint64_t>(rem);
+        arg2 = reinterpret_cast<uint64_t>(mpn2);
+        arg3 = limbs;
+        arg4 = reinterpret_cast<uint64_t>(db);
       }
       else if (signature == "mul_basecase")
       {
@@ -1268,9 +1295,13 @@ class ajs {
       mpn3 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
       // double size mpn, e.g. for output of mpn_mul
       mpn4 = (uint64_t*)malloc(2 * limbs * sizeof(uint64_t));
+      mp_size_t k = 1;
+      if (signature.substr(0, 6) == "mod_1_")
+        k = signature.at(6) - '0';
+      mp_limb_t db[k + 1], rem[k + 1];
 
       getArgs(mpn1, mpn2, mpn3, mpn4, limbs, signature, arg1, arg2, arg3, arg4,
-          arg5, arg6);
+          arg5, arg6, db, rem);
 
       list<int> idPerm;
 
@@ -1482,6 +1513,7 @@ void display_usage()
 "                            addmul_1:     mpn, mpn, length, multiplier        \n"
 "                            addmul_2:     mpn, mpn, length, mpn (length 2)    \n"
 "                            mul_basecase: mpn, mpn, length, mpn, length       \n"
+"                            mod_1_<n>:    remainder, mpn, divisor, [B^n %% div]\n"
 "                          If no signature is specified add_n is used          \n"
 "  -v/--verbose            Set verbosity level (use -vv...v for higher levels) \n"
 "  -o/--out <file>         Write the final output to <file>                    \n"
