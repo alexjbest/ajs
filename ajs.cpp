@@ -16,6 +16,9 @@
 #include <getopt.h>
 #include <sched.h>
 #include <unistd.h>
+#include "gmp.h"
+#include "gmp-impl.h"
+#include "longlong.h"
 #include "line.h"
 #include "transform.h"
 #include "utils.h"

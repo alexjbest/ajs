@@ -2,8 +2,8 @@ LIBASMJIT = libasmjit.a
 CC = g++
 ODIR = obj
 SDIR = src
-INC = -Iasmjit -I.
-CFLAGS = -g -Wno-attributes -O2 --std=c++0x
+INC = -Iasmjit -I. -I../gmp-6.1.0/
+CFLAGS = -g -Wno-attributes -O2 --std=c++0x -lasmjit -lgmp
 
 ASMJITOBJS = asmjit/base/assembler.o asmjit/base/compiler.o \
              asmjit/base/compilercontext.o asmjit/base/constpool.o \
@@ -21,7 +21,7 @@ ASMJITOBJS = asmjit/base/assembler.o asmjit/base/compiler.o \
 AJSOBJS = line.o transform.o
 
 all: $(LIBASMJIT) $(AJSOBJS) ajs.cpp
-	$(CC) -o ajs ajs.cpp $(AJSOBJS) -L. -lasmjit $(INC) $(CFLAGS)
+	$(CC) -o ajs ajs.cpp $(AJSOBJS) -L. $(INC) $(CFLAGS)
 
 %.o: %.cpp
 	$(CC) -c $(INC) -o $@ $< $(CFLAGS)
