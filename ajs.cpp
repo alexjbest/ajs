@@ -1400,7 +1400,7 @@ class ajs {
         const char* outFile, const int verbose, const int intelSyntax,
         const string signature, const int nopLine, const int loop,
         const string prepend, const string append, const int maxPerms,
-        const int removeLabels)
+        const int removeLabels, const int includeLeadIn)
     {
       int numLabels = 0;
 
@@ -1420,15 +1420,18 @@ class ajs {
 
       if (start != 0)
         start--;
-      else
-        start = 0;
+
       if (end != 0)
         end--;
       else
         end = func.size() - 1;
 
       if (loop)
+      {
         getLoopRange(start, end, loop, func);
+        if (includeLeadIn)
+          start = 0;
+      }
 
       if ((end > func.size() - 1) || (start > end))
       {
@@ -1500,6 +1503,8 @@ void display_usage()
 "  -r/--range <l1>-<l2>    Only superoptimise the lines <l1> to                \n"
 "                          <l2> (inclusive)                                    \n"
 "  -L/--loop <number>      Optimise loop <number> only (overrides range)       \n"
+"  -I/--include-leadin     When used with --loop optimises the range up to and \n"
+"                          including the loop specified                        \n"
 "  -m/--max-perms <number> Try at most <number> permutations for each function \n"
 "  -s/--signature <sig>    Give the function inputs of the format <sig>,       \n"
 "                          where the possible signatures are as follows        \n"
@@ -1544,7 +1549,8 @@ void display_usage()
 int main(int argc, char* argv[])
 {
   int c, start = 0, end = 0, limbs = 111, verbose = 0, nopLine = -1,
-      intelSyntax = 0, loop = 0, cpunum = -1, maxPerms = 0, removeLabels = 0;
+      intelSyntax = 0, loop = 0, cpunum = -1, maxPerms = 0, removeLabels = 0,
+      includeLeadIn = 0;
   char *outFile = NULL;
   char *inFile = NULL;
   string signature = "add_n", prepend = "", append = "";
@@ -1561,6 +1567,7 @@ int main(int argc, char* argv[])
     {"append",        required_argument, 0, 'a'},
     {"cpu",           required_argument, 0, 'c'},
     {"help",          no_argument,       0, 'h'},
+    {"include-leadin",no_argument,       0, 'I'},
     {"intel",         no_argument,       0, 'i'},
     {"limbs",         required_argument, 0, 'l'},
     {"loop",          required_argument, 0, 'L'},
@@ -1575,7 +1582,7 @@ int main(int argc, char* argv[])
     {0,               0,                 0, 0  }
   };
 
-  while ((c = getopt_long(argc, argv, "a:c:hil:L:m:n:o:p:r:Rs:v::",
+  while ((c = getopt_long(argc, argv, "a:c:hiIl:L:m:n:o:p:r:Rs:v::",
         long_options, &option_index)) != -1) {
 
     switch (c) {
@@ -1590,6 +1597,10 @@ int main(int argc, char* argv[])
         printf("# using cpu %d\n", cpunum);
         break;
 
+      case 'I':
+        includeLeadIn = 1;
+        printf("# including lead in\n");
+        break;
       case 'i':
         intelSyntax = 1;
         printf("# assuming intel syntax\n");
@@ -1679,6 +1690,9 @@ int main(int argc, char* argv[])
     printf("# source file: %s\n", inFile);
   }
 
+  if (includeLeadIn & ~loop)
+    printf("# warning: include lead in set but loop not.\n");
+
   if (cpunum != -1) {
     CPU_ZERO(&cpuset);
     CPU_SET(cpunum, &cpuset);
@@ -1686,5 +1700,5 @@ int main(int argc, char* argv[])
   }
 
   return ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax,
-      signature, nopLine, loop, prepend, append, maxPerms, removeLabels);
+      signature, nopLine, loop, prepend, append, maxPerms, removeLabels, includeLeadIn);
 }
