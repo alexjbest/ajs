@@ -1,8 +1,8 @@
 ajs (asmjit superoptimiser)
 ===========================
 
-This is a prototype of an assembly superoptimiser based on Petr Kobalicek's asmjit C++ library.
-In order to build this using make you will need a copy of the asmjit library source (but not the tests and build scripts) in a subfolder of this directory called asmjit, for example by running:
+AJS is an assembly superoptimiser, currently under development as part of the OpenDreamKit project funded by the Horizon 2020 European Research Infrastructures Work Programme.
+AJS is built using Petr Kobalicek's asmjit C++ library, so in order to build this using `make` you will need a copy of the asmjit library source (but not the tests and build scripts) in a subfolder of this directory called asmjit, for example by running:
 ```bash
 git clone git@github.com:alexjbest/asmjit.git ~/
 ln -s ~/asmjit/src/asmjit/ ~/ajs/
@@ -23,3 +23,5 @@ Features
  - Transforming swaps
  - `nop` insertion
 
+![Flag of EU](http://opendreamkit.org/public/logos/Flag_of_Europe.svg)
+![ODK logo](http://opendreamkit.org/public/logos/odk-elected-logo.svg)
