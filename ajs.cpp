@@ -730,7 +730,12 @@ class ajs {
             }
             if (parsed[0] == "jrcxz" || parsed[0] == "jecxz") // add extra arg to jr/ecx instrs
             {
-              parsed[1] = parsed[0].substr(1,3) + ',' + parsed[1];
+              if (intelSyntax) {
+                parsed[1] = parsed[0].substr(1, 3) + ',' + parsed[1];
+              }
+              else {
+                parsed[1] = parsed[1] + ",%" + parsed[0].substr(1, 3);
+              }
               parsed[0] = "jecxz";
             }
             if (0 && parsed[0] == "movq")
