@@ -471,6 +471,9 @@ class ajs {
       // mulx writes to two outputs
       if (l.getInstruction() == X86Util::getInstIdByName("mulx"))
         l.addRegOut(*static_cast<const X86Reg*>(l.getOpPtr(1)));
+      // xchg writes to both outputs
+      if (l.getInstruction() == X86Util::getInstIdByName("xchg") && l.getOp(1).isReg())
+        l.addRegOut(*static_cast<const X86Reg*>(l.getOpPtr(1)));
     }
 
     // if Line1 and Line2 can be transforming swapped adds the corresponding
