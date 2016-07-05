@@ -13,7 +13,7 @@ do
 		do
 			if [ -a $f ]
 			then
-				./superopt $f -s $sig -q "include(\`../config.m4')
+				./superopt $f -s $sig -p "include(\`../config.m4')
 ASM_START()
 PROLOGUE(mpn_$file)" -a "EPILOGUE()" -o "$OUT_DIR/$file.asm"
 			fi
