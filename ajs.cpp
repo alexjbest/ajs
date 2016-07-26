@@ -22,6 +22,7 @@
 #include "line.h"
 #include "transform.h"
 #include "utils.h"
+#include "../intelpcm/cpucounters.h"
 
 #define regreg(N)  if (name == #N) return N
 #define debug_print(fmt, ...) \
@@ -879,7 +880,7 @@ class ajs {
       uint32_t cycles_high, cycles_high1, cycles_low, cycles_low1;
       uint64_t start, end;
       double total;
-      const int loopsize = 2, trials = 60;
+      const int loopsize = 3, trials = 60;
       volatile int k = 0;
 
       // In order to run 'funcPtr' it has to be casted to the desired type.
@@ -892,31 +893,53 @@ class ajs {
       FuncType callableFunc = asmjit_cast<FuncType>(funcPtr);
       int times[trials];
 
+      PCM * m = PCM::getInstance();
+      m->resetPMU();
+      // program counters, and on a failure just exit
+      if (m->program() != PCM::Success)
+      {
+        cout<< m->program() <<endl;
+        m->cleanup();
+        exit(0);
+      }
+
       total = -1;
       for (int i = 0; i < trials; i++)
       {
         int curTotal = 0;
+
+        CoreCounterState before_sstate;
+        CoreCounterState after_sstate;
         for (k = 0; k < loopsize; k++)
         {
-          asm volatile (
+          before_sstate = getCoreCounterState(0);
+          /*asm volatile (
               "CPUID\n\t"
               "RDTSC\n\t"
               "mov %%edx, %0\n\t"
               "mov %%eax, %1\n\t":
               "=r" (cycles_high), "=r" (cycles_low)::
+              "%rax", "%rbx", "%rcx", "%rdx");*/
+          asm volatile(
+              "CPUID\n\t" :::
               "%rax", "%rbx", "%rcx", "%rdx");
 
           callableFunc(arg1, arg2, arg3, arg4, arg5, arg6);
-
           asm volatile(
+              "CPUID\n\t" :::
+              "%rax", "%rbx", "%rcx", "%rdx");
+
+          /*asm volatile(
               "RDTSCP\n\t"
               "mov %%edx, %0\n\t"
               "mov %%eax, %1\n\t"
               "CPUID\n\t" :
               "=r" (cycles_high1), "=r" (cycles_low1) ::
-              "%rax", "%rbx", "%rcx", "%rdx");
+              "%rax", "%rbx", "%rcx", "%rdx");*/
+          after_sstate = getCoreCounterState(0);
 
-          start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
+
+          /*start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
           end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
           times[i] = end - start - overhead;
 
@@ -927,7 +950,18 @@ class ajs {
             if (total != -1)
               curTotal = total + 1;
             break;
-          }
+          }*/
+        }
+
+        times[i] = getCycles(before_sstate, after_sstate);
+        if (verbose)
+        {
+          cout << "Instructions per clock:" << getIPC(before_sstate,after_sstate)
+            << " " << getCycles(before_sstate, after_sstate)
+            << " L2 cache hit ratio:" << getL2CacheHitRatio(before_sstate,after_sstate)
+            << " L3 cache hit ratio:" << getL3CacheHitRatio(before_sstate,after_sstate)
+            //<< "Bytes read:" << getBytesReadFromMC(before_sstate,after_sstate)
+            << endl;
         }
       }
 
@@ -1320,7 +1354,7 @@ class ajs {
         idPerm.insert(idPerm.end(), i);
 
       // 'warm up' the processor?
-      for (int i = 0; i < 10000 && !exiting; i++)
+      for (int i = 0; i < 1000 && !exiting; i++)
         timeFunc(func, idPerm, numLabels, 0, 0, 0, transforms, arg1, arg2,
             arg3, arg4, arg5, arg6);
 
