@@ -1,32 +1,40 @@
 LIBASMJIT = libasmjit.a
+ASMJITBASE = asmjit
+INTELPCMBASE = ../intelpcm/intelpcm.so
+GMPBASE = ../gmp-6.1.0
 CC = g++
 ODIR = obj
 SDIR = src
-INC = -Iasmjit -I. -I../gmp-6.1.1/
-CFLAGS = -g -Wno-attributes -O2 --std=c++0x -lasmjit -lgmp -pthread
+INC = -I. -I$(ASMJITBASE) -I$(GMPBASE)
+CFLAGS = -g -Wno-attributes -O2 --std=c++0x -lasmjit -lgmp
 
-ASMJITOBJS = asmjit/base/assembler.o asmjit/base/compiler.o \
-             asmjit/base/compilercontext.o asmjit/base/constpool.o \
-             asmjit/base/containers.o asmjit/base/cpuinfo.o \
-             asmjit/base/globals.o asmjit/base/hlstream.o \
-             asmjit/base/logger.o asmjit/base/operand.o \
-             asmjit/base/podvector.o asmjit/base/runtime.o \
-             asmjit/base/utils.o asmjit/base/vmem.o asmjit/base/zone.o \
-             asmjit/x86/x86assembler.o asmjit/x86/x86compiler.o \
-             asmjit/x86/x86compilercontext.o asmjit/x86/x86compilerfunc.o \
-             asmjit/x86/x86inst.o asmjit/x86/x86operand.o \
-             asmjit/x86/x86operand_regs.o
+ASMJITOBJS = $(ASMJITBASE)/base/assembler.o asmjit/base/compiler.o \
+             $(ASMJITBASE)/base/compilercontext.o asmjit/base/constpool.o \
+             $(ASMJITBASE)/base/containers.o asmjit/base/cpuinfo.o \
+             $(ASMJITBASE)/base/globals.o asmjit/base/hlstream.o \
+             $(ASMJITBASE)/base/logger.o asmjit/base/operand.o \
+             $(ASMJITBASE)/base/podvector.o asmjit/base/runtime.o \
+             $(ASMJITBASE)/base/utils.o asmjit/base/vmem.o asmjit/base/zone.o \
+             $(ASMJITBASE)/x86/x86assembler.o asmjit/x86/x86compiler.o \
+             $(ASMJITBASE)/x86/x86compilercontext.o asmjit/x86/x86compilerfunc.o \
+             $(ASMJITBASE)/x86/x86inst.o asmjit/x86/x86operand.o \
+             $(ASMJITBASE)/x86/x86operand_regs.o
 
-INTELPCMOBJS = ../intelpcm/intelpcm.so/client_bw.o \
-		../intelpcm/intelpcm.so/cpucounters.o \
-		../intelpcm/intelpcm.so/msr.o \
-		../intelpcm/intelpcm.so/pci.o \
-		../intelpcm/intelpcm.so/utils.o
+INTELPCMOBJS = $(INTELPCMBASE)/client_bw.o \
+		$(INTELPCMBASE)/cpucounters.o \
+		$(INTELPCMBASE)/msr.o \
+		$(INTELPCMBASE)/pci.o \
+		$(INTELPCMBASE)/utils.o
 
 AJSOBJS = line.o transform.o
 
-all: $(INTELPCMOBJS)$(LIBASMJIT) $(AJSOBJS) ajs.cpp
-	$(CC) -o ajs ajs.cpp $(INTELPCMOBJS) $(AJSOBJS) -L. $(INC) $(CFLAGS)
+all: ajs
+
+ajs: $(LIBASMJIT) $(AJSOBJS) ajs.cpp
+	$(CC) -o ajs ajs.cpp $(AJSOBJS) -L. $(INC) $(CFLAGS)
+
+ajs-pcm: $(INTELPCMOBJS) $(LIBASMJIT) $(AJSOBJS) ajs.cpp
+	$(CC) -o ajs ajs.cpp $(INTELPCMOBJS) $(AJSOBJS) -L. $(INC) $(CFLAGS) -pthread
 
 %.o: %.cpp
 	$(CC) -c $(INC) -o $@ $< $(CFLAGS)
@@ -40,4 +48,4 @@ clean:
 check: all
 	./test
 
-.PHONY: clean check all
+.PHONY: clean check all ajs-pcm
