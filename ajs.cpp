@@ -22,7 +22,9 @@
 #include "line.h"
 #include "transform.h"
 #include "utils.h"
-#include "../intelpcm/cpucounters.h"
+
+#include "config.h"
+
 
 #define regreg(N)  if (name == #N) return N
 #define debug_print(fmt, ...) \
@@ -31,7 +33,10 @@
 
 #define stringify( x ) static_cast< std::ostringstream & >( \
             ( std::ostringstream() << std::dec << x ) ).str()
-#define MAX_OPS 3
+
+#ifdef USE_INTEL_PCM
+#include "../intelpcm/cpucounters.h"
+#endif
 
 using namespace asmjit;
 using namespace x86;
@@ -893,6 +898,7 @@ class ajs {
       FuncType callableFunc = asmjit_cast<FuncType>(funcPtr);
       int times[trials];
 
+#ifdef USE_INTEL_PCM
       PCM * m = PCM::getInstance();
       m->resetPMU();
       // program counters, and on a failure just exit
@@ -902,48 +908,49 @@ class ajs {
         m->cleanup();
         exit(0);
       }
+#endif
 
       total = -1;
       for (int i = 0; i < trials; i++)
       {
         int curTotal = 0;
 
+#ifdef USE_INTEL_PCM
         CoreCounterState before_sstate;
         CoreCounterState after_sstate;
+#endif
         for (k = 0; k < loopsize; k++)
         {
+#ifdef USE_INTEL_PCM
           before_sstate = getCoreCounterState(0);
-          /*asm volatile (
+#endif
+          asm volatile (
               "CPUID\n\t"
               "RDTSC\n\t"
               "mov %%edx, %0\n\t"
               "mov %%eax, %1\n\t":
               "=r" (cycles_high), "=r" (cycles_low)::
-              "%rax", "%rbx", "%rcx", "%rdx");*/
-          asm volatile(
-              "CPUID\n\t" :::
               "%rax", "%rbx", "%rcx", "%rdx");
 
           callableFunc(arg1, arg2, arg3, arg4, arg5, arg6);
-          asm volatile(
-              "CPUID\n\t" :::
-              "%rax", "%rbx", "%rcx", "%rdx");
 
-          /*asm volatile(
+          asm volatile(
               "RDTSCP\n\t"
               "mov %%edx, %0\n\t"
               "mov %%eax, %1\n\t"
               "CPUID\n\t" :
               "=r" (cycles_high1), "=r" (cycles_low1) ::
-              "%rax", "%rbx", "%rcx", "%rdx");*/
+              "%rax", "%rbx", "%rcx", "%rdx");
+#ifdef USE_INTEL_PCM
           after_sstate = getCoreCounterState(0);
+#endif
 
 
-          /*start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
+          start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
           end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
           times[i] = end - start - overhead;
 
-          if (0 && target != 0 && k >= loopsize >> 1 && curTotal > (target + 20) * (k + 1))
+          /*if (0 && target != 0 && k >= loopsize >> 1 && curTotal > (target + 20) * (k + 1))
           {
             if (verbose)
               printf("# cannot hit target, aborting\n");
@@ -953,7 +960,9 @@ class ajs {
           }*/
         }
 
+#ifdef USE_INTEL_PCM
         times[i] = getCycles(before_sstate, after_sstate);
+
         if (verbose)
         {
           cout << "Instructions per clock:" << getIPC(before_sstate,after_sstate)
@@ -963,6 +972,7 @@ class ajs {
             //<< "Bytes read:" << getBytesReadFromMC(before_sstate,after_sstate)
             << endl;
         }
+#endif
       }
 
       qsort(times, trials, sizeof(int), comp);
