@@ -885,7 +885,6 @@ class ajs {
       uint32_t cycles_high, cycles_high1, cycles_low, cycles_low1;
       uint64_t start, end;
       double total;
-      const int loopsize = 3, trials = 60;
       volatile int k = 0;
 
       // In order to run 'funcPtr' it has to be casted to the desired type.
@@ -896,7 +895,7 @@ class ajs {
       // Using asmjit_cast is purely optional, it's basically a C-style cast
       // that tries to make it visible that a function-type is returned.
       FuncType callableFunc = asmjit_cast<FuncType>(funcPtr);
-      int times[trials];
+      int times[TRIALS];
 
 #ifdef USE_INTEL_PCM
       PCM * m = PCM::getInstance();
@@ -911,7 +910,7 @@ class ajs {
 #endif
 
       total = -1;
-      for (int i = 0; i < trials; i++)
+      for (int i = 0; i < TRIALS; i++)
       {
         int curTotal = 0;
 
@@ -919,7 +918,7 @@ class ajs {
         CoreCounterState before_sstate;
         CoreCounterState after_sstate;
 #endif
-        for (k = 0; k < loopsize; k++)
+        for (k = 0; k < LOOPSIZE; k++)
         {
 #ifdef USE_INTEL_PCM
           before_sstate = getCoreCounterState(0);
@@ -950,7 +949,7 @@ class ajs {
           end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
           times[i] = end - start - overhead;
 
-          /*if (0 && target != 0 && k >= loopsize >> 1 && curTotal > (target + 20) * (k + 1))
+          /*if (0 && target != 0 && k >= LOOPSIZE >> 1 && curTotal > (target + 20) * (k + 1))
           {
             if (verbose)
               printf("# cannot hit target, aborting\n");
@@ -975,14 +974,15 @@ class ajs {
 #endif
       }
 
-      qsort(times, trials, sizeof(int), comp);
+      qsort(times, TRIALS, sizeof(int), comp);
+#ifdef STRATEGY_MIN
       int prev = times[0];
       int i, diffs;
-      for (i = 0; (verbose || target % 10 == -1) && i < trials; i++)
+      for (i = 0; (verbose || target % 10 == -1) && i < TRIALS; i++)
         cout << times[i] << " ";
       if (verbose || target % 10 == -1)
         cout <<endl;
-      for (i = 0, diffs = 0; i < trials; i++)
+      for (i = 0, diffs = 0; i < TRIALS; i++)
       {
         if (prev != times[i])
         {
@@ -994,6 +994,9 @@ class ajs {
         total += times[i];
       }
       total /= ((double)i);
+#else
+      total = times[TRIALS/2];
+#endif
 
       if (verbose)
         printf("# total time: %lf\n", total);
@@ -1364,7 +1367,7 @@ class ajs {
         idPerm.insert(idPerm.end(), i);
 
       // 'warm up' the processor?
-      for (int i = 0; i < 1000 && !exiting; i++)
+      for (int i = 0; i < WARMUP_LENGTH && !exiting; i++)
         timeFunc(func, idPerm, numLabels, 0, 0, 0, transforms, arg1, arg2,
             arg3, arg4, arg5, arg6);
 
