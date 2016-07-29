@@ -45,6 +45,9 @@ using namespace std;
 class ajs {
 
   public:
+#ifdef USE_INTEL_PCM
+    static PCM * m;
+#endif
     static int exiting; // boolean: whether or not ajs should be stopping, (set by interupt handler)
     static JitRuntime runtime;
     static X86Assembler assembler;
@@ -897,18 +900,6 @@ class ajs {
       FuncType callableFunc = asmjit_cast<FuncType>(funcPtr);
       int times[TRIALS];
 
-#ifdef USE_INTEL_PCM
-      PCM * m = PCM::getInstance();
-      m->resetPMU();
-      // program counters, and on a failure just exit
-      if (m->program() != PCM::Success)
-      {
-        cout<< m->program() <<endl;
-        m->cleanup();
-        exit(0);
-      }
-#endif
-
       total = -1;
       for (int i = 0; i < TRIALS; i++)
       {
@@ -940,11 +931,10 @@ class ajs {
               "CPUID\n\t" :
               "=r" (cycles_high1), "=r" (cycles_low1) ::
               "%rax", "%rbx", "%rcx", "%rdx");
+
 #ifdef USE_INTEL_PCM
           after_sstate = getCoreCounterState(0);
 #endif
-
-
           start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
           end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
           times[i] = end - start - overhead;
@@ -995,7 +985,7 @@ class ajs {
       }
       total /= ((double)i);
 #else
-      total = times[TRIALS/2];
+      total = times[TRIALS/10];
 #endif
 
       if (verbose)
@@ -1465,6 +1455,18 @@ class ajs {
       logger.setIndentation("\t");
       logger.addOptions(Logger::kOptionGASFormat);
 
+#ifdef USE_INTEL_PCM
+      m = PCM::getInstance();
+      m->resetPMU();
+      // program counters, and on a failure just exit
+      if (m->program() != PCM::Success)
+      {
+        cout<< m->program() <<endl;
+        m->cleanup();
+        exit(0);
+      }
+#endif
+
       // Create the functions we will work with
       vector<Line> func;
       list<int> bestPerm;
@@ -1534,6 +1536,9 @@ class ajs {
     }
 };
 
+#ifdef USE_INTEL_PCM
+PCM * ajs::m;
+#endif
 int ajs::exiting = 0;
 // Create JitRuntime and X86 Assembler/Compiler.
 JitRuntime ajs::runtime;
