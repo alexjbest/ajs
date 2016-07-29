@@ -30,10 +30,10 @@ AJSOBJS = line.o transform.o
 
 all: ajs
 
-ajs: $(LIBASMJIT) $(AJSOBJS) ajs.cpp config.h
+ajs: $(LIBASMJIT) $(AJSOBJS) ajs.cpp *.h
 	$(CC) -o ajs ajs.cpp $(AJSOBJS) -L. $(INC) $(CFLAGS)
 
-ajs-pcm: $(INTELPCMOBJS) $(LIBASMJIT) $(AJSOBJS) ajs.cpp config.h
+ajs-pcm: $(INTELPCMOBJS) $(LIBASMJIT) $(AJSOBJS) ajs.cpp *.h
 	$(CC) -o ajs ajs.cpp $(INTELPCMOBJS) $(AJSOBJS) -L. $(INC) $(CFLAGS) -pthread
 
 %.o: %.cpp
