@@ -26,10 +26,10 @@ echo "optimising $FILE"
 mkdir -p $OUT_DIR
 if [[ $FILE == *.asm ]]
 then
-	m4 -I$MPIR_ROOT/mpn/ $FILE | ./ajs -o "$OUT_DIR/$filename"_optimised.asm "${@:2}"
+	m4 -I$MPIR_ROOT/mpn/ $FILE | ./ajs -c 0 -o "$OUT_DIR/$filename"_optimised.asm "${@:2}"
 elif [[ $FILE == *.as ]]
 then
-	$MPIR_ROOT/yasm/yasm -e -I$MPIR_ROOT/ $FILE | ./ajs -i -o "$OUT_DIR/$filename"_optimised.asm "${@:2}"
+	$MPIR_ROOT/yasm/yasm -e -I$MPIR_ROOT/ $FILE | ./ajs -i -c 0 -o "$OUT_DIR/$filename"_optimised.asm "${@:2}"
 elif [[ $FILE == *.c ]]
 then
 	gcc -I$MPIR_ROOT/ -S -O2 $FILE -o "$filename"_tmp.s
