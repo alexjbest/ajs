@@ -8,16 +8,16 @@ SDIR = src
 INC = -I. -I$(ASMJITBASE) -I$(GMPBASE)
 CFLAGS = -g -Wno-attributes -O2 --std=c++0x -lasmjit -lgmp
 
-ASMJITOBJS = $(ASMJITBASE)/base/assembler.o asmjit/base/compiler.o \
-             $(ASMJITBASE)/base/compilercontext.o asmjit/base/constpool.o \
-             $(ASMJITBASE)/base/containers.o asmjit/base/cpuinfo.o \
-             $(ASMJITBASE)/base/globals.o asmjit/base/hlstream.o \
-             $(ASMJITBASE)/base/logger.o asmjit/base/operand.o \
-             $(ASMJITBASE)/base/podvector.o asmjit/base/runtime.o \
-             $(ASMJITBASE)/base/utils.o asmjit/base/vmem.o asmjit/base/zone.o \
-             $(ASMJITBASE)/x86/x86assembler.o asmjit/x86/x86compiler.o \
-             $(ASMJITBASE)/x86/x86compilercontext.o asmjit/x86/x86compilerfunc.o \
-             $(ASMJITBASE)/x86/x86inst.o asmjit/x86/x86operand.o \
+ASMJITOBJS = $(ASMJITBASE)/base/assembler.o $(ASMJITBASE)/base/compiler.o \
+             $(ASMJITBASE)/base/compilercontext.o $(ASMJITBASE)/base/constpool.o \
+             $(ASMJITBASE)/base/containers.o $(ASMJITBASE)/base/cpuinfo.o \
+             $(ASMJITBASE)/base/globals.o $(ASMJITBASE)/base/hlstream.o \
+             $(ASMJITBASE)/base/logger.o $(ASMJITBASE)/base/operand.o \
+             $(ASMJITBASE)/base/podvector.o $(ASMJITBASE)/base/runtime.o \
+             $(ASMJITBASE)/base/utils.o $(ASMJITBASE)/base/vmem.o $(ASMJITBASE)/base/zone.o \
+             $(ASMJITBASE)/x86/x86assembler.o $(ASMJITBASE)/x86/x86compiler.o \
+             $(ASMJITBASE)/x86/x86compilercontext.o $(ASMJITBASE)/x86/x86compilerfunc.o \
+             $(ASMJITBASE)/x86/x86inst.o $(ASMJITBASE)/x86/x86operand.o \
              $(ASMJITBASE)/x86/x86operand_regs.o
 
 INTELPCMOBJS = $(INTELPCMBASE)/client_bw.o \
