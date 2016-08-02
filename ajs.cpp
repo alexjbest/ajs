@@ -419,7 +419,7 @@ class ajs {
             const X86InstInfo& info = X86Util::getInstInfo(l.getInstruction());
 
             // Mov instructions do not read first op
-            if (info.getExtendedInfo().isMove())
+            if (info.getExtendedInfo().isRW())
               continue;
             // Pop does not read first op
             if (l.getInstruction() == X86Util::getInstIdByName("pop"))
