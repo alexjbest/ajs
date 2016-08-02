@@ -1025,6 +1025,7 @@ class ajs {
           if ((size_t)(assembler._end - cursor) < 16)
           {
             assembler._grow(16);
+            cursor = assembler.getCursor();
           }
           cursor[0] = curLine.getByte();
           cursor += 1;
