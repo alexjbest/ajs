@@ -10,7 +10,11 @@ The options for ajs are as follows:
 "
 
 FILE=$1
-MPIR_ROOT=../mpir
+if [ -z "$MPIR_ROOT" ]
+then
+  MPIR_ROOT=../mpir
+  echo "Using $MPIR_ROOT as base directory of MPIR"
+fi
 OUT_DIR=out
 
 if [ "$FILE" == "--help" ] || [ "$FILE" == "" ]
