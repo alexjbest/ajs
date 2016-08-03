@@ -10,7 +10,11 @@ The options for ajs are as follows:
 "
 
 FILE=$1
-MPIR_ROOT=../mpir
+if [ -z "$MPIR_ROOT" ]
+then
+  MPIR_ROOT=../mpir
+  echo "Using $MPIR_ROOT as base directory of MPIR"
+fi
 OUT_DIR=out
 
 if [ "$FILE" == "--help" ] || [ "$FILE" == "" ]
@@ -23,16 +27,16 @@ fi
 filename=$(basename "$FILE")
 filename="${filename%.*}"
 echo "optimising $FILE"
-mkdir -p $OUT_DIR
-if [[ $FILE == *.asm ]]
+mkdir -p "$OUT_DIR"
+if [[ "$FILE" == *.asm ]]
 then
-	m4 -I$MPIR_ROOT/mpn/ $FILE | ./ajs -c 0 -o "$OUT_DIR/$filename"_optimised.asm "${@:2}"
-elif [[ $FILE == *.as ]]
+	m4 "-I$MPIR_ROOT/mpn/" "$FILE" | ./ajs -c 0 -o "$OUT_DIR/$filename"_optimised.asm "${@:2}"
+elif [[ "$FILE" == *.as ]]
 then
-	$MPIR_ROOT/yasm/yasm -e -I$MPIR_ROOT/ $FILE | ./ajs -i -c 0 -o "$OUT_DIR/$filename"_optimised.asm "${@:2}"
-elif [[ $FILE == *.c ]]
+	"$MPIR_ROOT/yasm/yasm" -e "-I$MPIR_ROOT/mpn/x86_64w/" "$MPIR_ROOT/mpn/$FILE" | ./ajs -i -c 0 -o "$OUT_DIR/$filename"_optimised.asm "${@:2}"
+elif [[ "$FILE" == *.c ]]
 then
-	gcc -I$MPIR_ROOT/ -S -O2 $FILE -o "$filename"_tmp.s
+	gcc "-I$MPIR_ROOT/" -S -O2 "$FILE" -o "$filename"_tmp.s
 	./ajs "$filename"_tmp.s -o "$OUT_DIR/$filename"_optimised.asm "${@:2}"
 	rm "$filename"_tmp.s
 else

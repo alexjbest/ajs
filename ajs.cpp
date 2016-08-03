@@ -26,7 +26,7 @@
 #include "config.h"
 
 
-#define regreg(N)  if (name == #N) return N
+#define regreg(N)  do {if (name == #N) return N;} while(0)
 #define debug_print(fmt, ...) \
   do { fprintf(stderr, "# %s:%d:%s(): " fmt, __FILE__, \
       __LINE__, __func__, __VA_ARGS__); } while (0)
@@ -1025,6 +1025,7 @@ class ajs {
           if ((size_t)(assembler._end - cursor) < 16)
           {
             assembler._grow(16);
+            cursor = assembler.getCursor();
           }
           cursor[0] = curLine.getByte();
           cursor += 1;
