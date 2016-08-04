@@ -323,6 +323,12 @@ class ajs {
       if (binfo.getExtendedInfo().isFlow())
         return true;
 
+      // if a or b are marked as volatile there is always a dependency
+      if (ainfo.getExtendedInfo().hasFlag(kX86InstFlagVolatile))
+        return true;
+      if (binfo.getExtendedInfo().hasFlag(kX86InstFlagVolatile))
+        return true;
+
       // if a reads flags set by b there is a dependency
       if (ainfo.getEFlagsIn() & binfo.getEFlagsOut())
         return true;
