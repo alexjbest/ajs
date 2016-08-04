@@ -1336,7 +1336,7 @@ class ajs {
     {
       double bestTime = 0, overhead = 0;
       uint64_t *mpn1, *mpn2, *mpn3, *mpn4;
-      uint64_t arg1, arg2, arg3, arg4, arg5, arg6;
+      uint64_t arg1 = 0, arg2 = 0, arg3 = 0, arg4 = 0, arg5 = 0, arg6 = 0;
 
       // set up arguments for use by function
       mpn1 = (uint64_t*)malloc((limbs + 1) * sizeof(uint64_t));
