@@ -22,6 +22,7 @@
 #include "line.h"
 #include "transform.h"
 #include "utils.h"
+#include "rdtsc.h"
 
 #include "config.h"
 
@@ -34,9 +35,6 @@
 #define stringify( x ) static_cast< std::ostringstream & >( \
             ( std::ostringstream() << std::dec << x ) ).str()
 
-#ifdef USE_INTEL_PCM
-#include "../intelpcm/cpucounters.h"
-#endif
 
 using namespace asmjit;
 using namespace x86;
@@ -45,9 +43,6 @@ using namespace std;
 class ajs {
 
   public:
-#ifdef USE_INTEL_PCM
-    static PCM * m;
-#endif
     static int exiting; // boolean: whether or not ajs should be stopping, (set by interupt handler)
     static JitRuntime runtime;
     static X86Assembler assembler;
@@ -913,38 +908,14 @@ class ajs {
       {
         int curTotal = 0;
 
-#ifdef USE_INTEL_PCM
-        CoreCounterState before_sstate;
-        CoreCounterState after_sstate;
-#endif
         for (k = 0; k < LOOPSIZE; k++)
         {
-#ifdef USE_INTEL_PCM
-          before_sstate = getCoreCounterState(0);
-#endif
-          asm volatile (
-              "CPUID\n\t"
-              "RDTSC\n\t"
-              "mov %%edx, %0\n\t"
-              "mov %%eax, %1\n\t":
-              "=r" (cycles_high), "=r" (cycles_low)::
-              "%rax", "%rbx", "%rcx", "%rdx");
+          start = rdtscp();
 
           callableFunc(arg1, arg2, arg3, arg4, arg5, arg6);
 
-          asm volatile(
-              "RDTSCP\n\t"
-              "mov %%edx, %0\n\t"
-              "mov %%eax, %1\n\t"
-              "CPUID\n\t" :
-              "=r" (cycles_high1), "=r" (cycles_low1) ::
-              "%rax", "%rbx", "%rcx", "%rdx");
+          end = rdtscp();
 
-#ifdef USE_INTEL_PCM
-          after_sstate = getCoreCounterState(0);
-#endif
-          start = ( ((uint64_t)cycles_high << 32) | (uint64_t)cycles_low );
-          end = ( ((uint64_t)cycles_high1 << 32) | (uint64_t)cycles_low1 );
           times[i] = end - start - overhead;
 
           /*if (0 && target != 0 && k >= LOOPSIZE >> 1 && curTotal > (target + 20) * (k + 1))
@@ -957,19 +928,6 @@ class ajs {
           }*/
         }
 
-#ifdef USE_INTEL_PCM
-        times[i] = getCycles(before_sstate, after_sstate);
-
-        if (verbose)
-        {
-          cout << "Instructions per clock:" << getIPC(before_sstate,after_sstate)
-            << " " << getCycles(before_sstate, after_sstate)
-            << " L2 cache hit ratio:" << getL2CacheHitRatio(before_sstate,after_sstate)
-            << " L3 cache hit ratio:" << getL3CacheHitRatio(before_sstate,after_sstate)
-            //<< "Bytes read:" << getBytesReadFromMC(before_sstate,after_sstate)
-            << endl;
-        }
-#endif
       }
 
       qsort(times, TRIALS, sizeof(int), comp);
@@ -1545,9 +1503,6 @@ class ajs {
     }
 };
 
-#ifdef USE_INTEL_PCM
-PCM * ajs::m;
-#endif
 int ajs::exiting = 0;
 // Create JitRuntime and X86 Assembler/Compiler.
 JitRuntime ajs::runtime;
