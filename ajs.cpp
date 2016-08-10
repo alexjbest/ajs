@@ -516,9 +516,11 @@ class ajs {
           base = 1;
         if (line2.getInstruction() == X86Util::getInstIdByName("dec"))
           base = -1;
-        if (line2.getInstruction() == X86Util::getInstIdByName("add"))
+        if (line2.getInstruction() == X86Util::getInstIdByName("add") &&
+        	line2.getOpPtr(1)->isImm())
           base = static_cast<Imm*>(line2.getOpPtr(1))->getInt32();
-        if (line2.getInstruction() == X86Util::getInstIdByName("sub"))
+        if (line2.getInstruction() == X86Util::getInstIdByName("sub") &&
+        	line2.getOpPtr(1)->isImm())
           base = -static_cast<Imm*>(line2.getOpPtr(1))->getInt32();
 
         if (base == 0)
