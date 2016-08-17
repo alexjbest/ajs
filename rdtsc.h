@@ -21,16 +21,16 @@
 
 #ifdef USE_INTEL_PCM
 	#include "cpucounters.h"
-	static extern PCM * m;
-	static extern CoreCounterState before_sstate, after_state;
+	static PCM * m;
+	static CoreCounterState before_sstate, after_state;
 #elif defined USE_PERF
 	#include "libperf.h"  /* standard libperf include */
-	static extern struct libperf_data* pd;
-	static extern uint64_t start_time, end_time;
+	static struct libperf_data* pd;
+	static uint64_t start_time, end_time;
 #else
 #define START_COUNTER rdtscp
 #define END_COUNTER rdtscp
-	static extern uint64_t start_time, end_time;
+	static uint64_t start_time, end_time;
 #endif
 
 
@@ -158,10 +158,10 @@ static void end_timing()
 #ifdef USE_INTEL_PCM
     after_sstate = getCoreCounterState(cpu);
 #elif defined(USE_PERF)
-    end_timing = libperf_readcounter(pd, LIBPERF_COUNT_HW_CPU_CYCLES);
+    end_time = libperf_readcounter(pd, LIBPERF_COUNT_HW_CPU_CYCLES);
                                           /* obtain counter value */
 #else
-    end_timing = END_COUNTER();
+    end_time = END_COUNTER();
 #endif
 }
 
@@ -170,9 +170,9 @@ static uint64_t get_diff_timing()
 #ifdef USE_INTEL_PCM
     return getCycles(before_sstate,after_sstate);
 #elif defined(USE_PERF)
-    return end_timing - start_timing;
+    return end_time - start_time;
 #else
-    return end_timing - start_timing;
+    return end_time - start_time;
 #endif
 
 }
