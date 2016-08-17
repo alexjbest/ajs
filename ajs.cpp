@@ -906,13 +906,20 @@ class ajs {
       {
         for (k = 0; k < LOOPSIZE; k++)
         {
-          start = rdtscp();
+          start_timing();
 
           callableFunc(arg1, arg2, arg3, arg4, arg5, arg6);
 
-          end = rdtscp();
+          end_timing();
 
-          times[i] = end - start - overhead;
+          const uint64_t diff = get_diff_timing();
+          if (diff == 0 || diff < overhead) {
+        	  printf("Timing resulted in %llu cycles with %f overhead\n", diff, overhead);
+              times[i] = 0;
+          } else {
+        	  // printf("Timing resulted in %llu cycles with %f overhead\n", diff, overhead);
+        	  times[i] = diff - overhead;
+          }
 
           /*if (0 && target != 0 && k >= LOOPSIZE >> 1 && curTotal > (target + 20) * (k + 1))
           {
@@ -1242,7 +1249,7 @@ class ajs {
             // time this permutation
             double newTime = timeFunc(func, perm, numLabels,
                 count, verbose, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
-            if (bestTime == 0 || bestTime - newTime > 0.25L)
+            if (newTime > 0 && (bestTime == 0 || bestTime - newTime > 0.25L))
             {
               printf("# better sequence found: %lf", newTime);
               if (bestTime != 0)
@@ -1333,6 +1340,7 @@ class ajs {
       list<int> emptyPerm(1, 0);
       overhead = timeFunc(emptyFunc, emptyPerm, 0,
           bestTime, verbose, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+      printf("#overhead = %f\n", overhead);
 
       bestTime = tryPerms(bestPerm, func, numLabels, from, to, verbose,
           overhead, maxPerms, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
@@ -1722,6 +1730,8 @@ int main(int argc, char* argv[])
     sched_setaffinity(getpid(), sizeof(cpuset), &cpuset);
   }
 
+  init_timing();
   return ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax,
       signature, nopLine, loop, prepend, append, maxPerms, removeLabels, includeLeadIn);
+  clear_timing();
 }
