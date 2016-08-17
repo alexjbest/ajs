@@ -797,7 +797,7 @@ class ajs {
               parsed.erase(parsed.begin());
 
               // stick bracketed expressions back together again
-              for (int j = 0; j < args.size(); j++)
+              for (size_t j = 0; j < args.size(); j++)
               {
                 string arg = args[j];
                 if (count(arg.begin(), arg.end(), '(') != count(arg.begin(), arg.end(), ')'))
@@ -817,7 +817,7 @@ class ajs {
                     id == X86Util::getInstIdByName("shl")))
                 args.insert(args.end(), intelSyntax ? "1" : "$1");
 
-              for (int i = 0; i < args.size(); i++)
+              for (size_t i = 0; i < args.size(); i++)
                 newLine.setOp(i, getOpFromStr(args[i], labels, useCounts, size, intelSyntax));
             }
 
@@ -888,8 +888,6 @@ class ajs {
         const int verbose, const double overhead, uint64_t arg1,
         uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
-      uint32_t cycles_high, cycles_high1, cycles_low, cycles_low1;
-      uint64_t start, end;
       double total;
       volatile int k = 0;
 
@@ -906,8 +904,6 @@ class ajs {
       total = -1;
       for (int i = 0; i < TRIALS; i++)
       {
-        int curTotal = 0;
-
         for (k = 0; k < LOOPSIZE; k++)
         {
           start = rdtscp();
