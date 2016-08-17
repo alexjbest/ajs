@@ -28,8 +28,8 @@
 	static struct libperf_data* pd;
 	static uint64_t start_time, end_time;
 #else
-#define START_COUNTER rdtscp
-#define END_COUNTER rdtscp
+#define START_COUNTER rdpmc_cycles
+#define END_COUNTER rdpmc_cycles
 	static uint64_t start_time, end_time;
 #endif
 
@@ -165,7 +165,7 @@ static void init_timing()
   libperf_enablecounter(pd, LIBPERF_COUNT_HW_CPU_CYCLES);
                                         /* enable HW counter */
 #else
-  printf("Using " _xstr(START_COUNTER) " to start and " _xstr(END_COUNTER) " to end measurement\n");
+  printf("# Using " _xstr(START_COUNTER) " to start and " _xstr(END_COUNTER) " to end measurement\n");
 #endif
 }
 
