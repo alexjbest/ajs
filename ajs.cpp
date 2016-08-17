@@ -1301,11 +1301,11 @@ class ajs {
       uint64_t arg1 = 0, arg2 = 0, arg3 = 0, arg4 = 0, arg5 = 0, arg6 = 0;
 
       // set up arguments for use by function
-      mpn1 = (uint64_t*)malloc((limbs + 1) * sizeof(uint64_t));
-      mpn2 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
-      mpn3 = (uint64_t*)malloc(limbs * sizeof(uint64_t));
+      mpn1 = (uint64_t*)aligned_alloc(4096, (limbs + 1) * sizeof(uint64_t));
+      mpn2 = (uint64_t*)aligned_alloc(4096, limbs * sizeof(uint64_t));
+      mpn3 = (uint64_t*)aligned_alloc(4096, limbs * sizeof(uint64_t));
       // double size mpn, e.g. for output of mpn_mul
-      mpn4 = (uint64_t*)malloc(2 * limbs * sizeof(uint64_t));
+      mpn4 = (uint64_t*)aligned_alloc(4096, 2 * limbs * sizeof(uint64_t));
       mp_size_t k = 1;
       if (signature.substr(0, 6) == "mod_1_")
         k = signature.at(6) - '0';
