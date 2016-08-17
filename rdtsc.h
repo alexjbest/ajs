@@ -105,6 +105,44 @@ static inline uint64_t idrdtscp()
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
+// rdpmc_cycles uses a "fixed-function" performance counter to return
+// the count of actual CPU core cycles executed by the current core.
+// Core cycles are not accumulated while the processor is in the "HALT"
+// state, which is used when the operating system has no task(s) to run
+// on a processor core.
+// Note that this counter continues to increment during system calls
+// and task switches. As such, it may be unreliable for timing long
+// functions where the CPU may serve an interrupt request or where
+// the kernel may preempt execution and switch to another process.
+// It is best used for timing short intervals which usually run
+// uninterrupted, and where occurrences of interruption are easily
+// detected by an abnormally large cycle count.
+
+// The RDPMC instruction must be enabled for execution in user-space.
+// This requires a total of three bits to be set in CR4 and MSRs of
+// the CPU:
+// Bit 1<<8 in CR4 must be set to 1. On Linux, this can be effected by
+// executing as root:
+//   echo 1 >> /sys/devices/cpu/rdpmc
+// Bit 1<<33 must be set to 1 in the MSR_CORE_PERF_GLOBAL_CTRL
+// (MSR address 0x38f). This enables the cycle counter so that it
+// actually increment with each clock cycle; while this bit is 0,
+// the counter value stays fixed.
+// Bit 1<<5 must be set to 1 in the MSR_CORE_PERF_FIXED_CTR_CTRL
+// (MSR address 0x38d) which allows this counter to be accessed
+// from user-space via the RDPMC instruction.
+
+unsigned long rdpmc_cycles()
+{
+   unsigned a, d;
+   const unsigned c = (1<<30) + 1; /* Second Fixed-function counter:
+                                      clock cycles in non-HALT */
+
+   __asm__ volatile("rdpmc" : "=a" (a), "=d" (d) : "c" (c));
+
+   return ((unsigned long)a) | (((unsigned long)d) << 32);
+}
+
 static void init_timing()
 {
 #ifdef USE_INTEL_PCM
