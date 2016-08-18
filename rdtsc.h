@@ -129,8 +129,11 @@ static inline uint64_t idrdtscp()
 // actually increment with each clock cycle; while this bit is 0,
 // the counter value stays fixed.
 // Bit 1<<5 must be set to 1 in the MSR_CORE_PERF_FIXED_CTR_CTRL
-// (MSR address 0x38d) which allows this counter to be accessed
-// from user-space via the RDPMC instruction.
+// (MSR address 0x38d) which causes the counter to be incremented
+// on non-halted clock cycles that occur while the CPL is >0
+// (user-mode). If bit 1<<4 is set to 1, then the counter will
+// increment while CPL is 0 (kernel mode), e.g., during interrupts,
+// etc.
 
 unsigned long rdpmc_cycles()
 {
