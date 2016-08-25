@@ -37,6 +37,7 @@ class Line
     int isLabel() const;
     int isAlign() const;
     int isByte() const;
+    bool isValid() const; // one of isInstruction, isLabel, isAlign, or isByte must be true
 
     void setInstruction(uint32_t inst);
     void setLabel(uint32_t lab);

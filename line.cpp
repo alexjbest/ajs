@@ -59,6 +59,10 @@ int Line::isByte() const {
   return byte != (uint8_t)-1;
 }
 
+bool Line::isValid() const {
+  return isInstruction() || isLabel() || isAlign() || isByte();
+}
+
 void Line::setInstruction(uint32_t inst) {
   instruction = inst;
   label = -1;
