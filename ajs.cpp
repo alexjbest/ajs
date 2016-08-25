@@ -40,6 +40,48 @@ using namespace asmjit;
 using namespace x86;
 using namespace std;
 
+
+// In order to run 'funcPtr' it has to be cast to the desired type.
+// Typedef is a recommended and safe way to create a function-type.
+typedef int (*FuncType)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
+    uint64_t);
+
+static void repeat_func_call(FuncType callableFunc, uint64_t arg1,
+		uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
+{
+#ifdef REPEATS
+	for (unsigned long r = 0; r < REPEATS; r++)
+		callableFunc(arg1, arg2, arg3, arg4, arg5, arg6);
+#else
+    callableFunc(arg1, arg2, arg3, arg4, arg5, arg6);
+#endif
+}
+
+template <typename element_type>
+void print_histogram(const element_type *values, const size_t len)
+{
+	size_t count = 1;
+
+	if (len == 0)
+		return;
+
+	element_type last = values[0];
+	for (int i = 1; i <= len; i++) {
+		if (i < len && values[i] == last) {
+			count++;
+		} else {
+			if (count == 1)
+				cout << " " << last;
+			else
+				cout << " " << last << "*" << count;
+			if (i < len)
+				last = values[i];
+			count = 1;
+		}
+	}
+}
+
+
 class ajs {
 
   public:
@@ -891,10 +933,6 @@ class ajs {
       double total;
       volatile int k = 0;
 
-      // In order to run 'funcPtr' it has to be casted to the desired type.
-      // Typedef is a recommended and safe way to create a function-type.
-      typedef int (*FuncType)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
-          uint64_t);
 
       // Using asmjit_cast is purely optional, it's basically a C-style cast
       // that tries to make it visible that a function-type is returned.
@@ -904,18 +942,16 @@ class ajs {
       total = -1;
       for (int i = 0; i < TRIALS; i++)
       {
+        times[i] = 0;
         for (k = 0; k < LOOPSIZE; k++)
         {
           start_timing();
-
-          callableFunc(arg1, arg2, arg3, arg4, arg5, arg6);
-
+          repeat_func_call(callableFunc, arg1, arg2, arg3, arg4, arg5, arg6);
           end_timing();
 
           const uint64_t diff = get_diff_timing();
           if (diff == 0 || diff < overhead) {
-        	  printf("Timing resulted in %llu cycles with %f overhead\n", diff, overhead);
-              times[i] = 0;
+              printf("Timing resulted in %lu cycles with %f overhead\n", diff, overhead);
           } else {
         	  // printf("Timing resulted in %llu cycles with %f overhead\n", diff, overhead);
         	  times[i] = diff - overhead;
@@ -959,6 +995,21 @@ class ajs {
 
       if (verbose)
         printf("# total time: %lf\n", total);
+
+      static double last_total = 0.;
+      static unsigned long in_a_row = 0;
+
+      if (total == last_total && in_a_row < 1000) {
+          in_a_row++;
+      } else {
+          cout << "# Had " << last_total << " cycles " << in_a_row <<" times in a row." << endl;
+          fflush(stdout);
+          last_total = total;
+          in_a_row = 1;
+          cout << "# New timings:";
+          print_histogram(times, TRIALS);
+          cout << endl;
+      }
 
       ajs::runtime.release((void*)callableFunc);
 
@@ -1032,7 +1083,6 @@ class ajs {
           assembler.reset();
 
           addFunc(func, perm, numLabels, transforms);
-
           void* funcPtr = assembler.make();
           times[i] = callFunc(funcPtr, target, verbose, overhead,
               arg1, arg2, arg3, arg4, arg5, arg6);
@@ -1327,6 +1377,9 @@ class ajs {
         idPerm.insert(idPerm.end(), i);
 
       // 'warm up' the processor?
+      if (WARMUP_LENGTH > 0) {
+          printf("# Warming up the processor\n");
+      }
       for (int i = 0; i < WARMUP_LENGTH && !exiting; i++)
         timeFunc(func, idPerm, numLabels, 0, 0, 0, transforms, arg1, arg2,
             arg3, arg4, arg5, arg6);
@@ -1335,12 +1388,13 @@ class ajs {
       if (verbose >= 2)
         assembler.setLogger(&logger);
 
+      printf("# Getting timing for empty function\n");
       Line ret(X86Util::getInstIdByName("ret"));
       vector<Line> emptyFunc(1, ret);
       list<int> emptyPerm(1, 0);
       overhead = timeFunc(emptyFunc, emptyPerm, 0,
           bestTime, verbose, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
-      printf("#overhead = %f\n", overhead);
+      printf("# overhead = %f\n", overhead);
 
       bestTime = tryPerms(bestPerm, func, numLabels, from, to, verbose,
           overhead, maxPerms, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
