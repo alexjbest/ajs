@@ -885,7 +885,10 @@ class ajs {
               depGroups[group].insert(depGroups[group].end(), func.size());
             }
           }
-
+          if (!newLine.isValid()) {
+              cout << "Error parsing: " << str << endl;
+              assert(newLine.isValid());
+          }
           func.insert(func.end(), newLine);
         }
       }
