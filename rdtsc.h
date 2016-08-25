@@ -27,81 +27,94 @@
 	#include "libperf.h"  /* standard libperf include */
 	static struct libperf_data* pd;
 	static uint64_t start_time, end_time;
+#elif USE_JEVENTS
+	extern "C" {
+#include "rdpmc.h"
+	}
+	struct rdpmc_ctx ctx;
+	uint64_t start_time, end_time;
 #else
 #define START_COUNTER rdpmc_cycles
 #define END_COUNTER rdpmc_cycles
 	static uint64_t start_time, end_time;
 #endif
 
+	__attribute__((UNUSED))
+static inline void serialize()
+{
+		unsigned long dummy = 0;
+		asm volatile("CPUID\n\t"
+	                 : "+a" (dummy)
+	                 :: "%rbx", "%rcx", "%rdx"
+	                );
+}
 
 __attribute__((UNUSED))
-static inline uint64_t rdtsc()
+static inline void rdtsc(uint32_t &low, uint32_t &high)
 {
-  uint32_t high, low;
   asm volatile("RDTSC\n\t"
                : "=d" (high), "=a" (low)
               );
-  return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
 __attribute__((UNUSED))
-static inline uint64_t rdtscp()
+static inline void rdtscp(uint32_t &low, uint32_t &high)
 {
-  uint32_t high, low;
   asm volatile("RDTSCP\n\t"
                : "=d" (high), "=a" (low)
-               :: "%rbx", "%rcx"
-               );
+               :: "%rcx"
+              );
+}
+
+__attribute__((UNUSED))
+static inline uint64_t rdtscl()
+{
+  uint32_t high, low;
+  rdtsc(low, high);
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
 __attribute__((UNUSED))
-static inline uint64_t rdtscid()
+static inline uint64_t rdtscpl()
 {
   uint32_t high, low;
-  asm volatile("RDTSC\n\t"
-               "mov %%edx, %0\n\t"
-               "mov %%eax, %1\n\t"
-               "CPUID\n\t"
-               : "=rm" (high), "=rm" (low) ::
-               "%rax", "%rbx", "%rcx", "%rdx");
+  rdtscp(low, high);
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
 __attribute__((UNUSED))
-static inline uint64_t idrdtsc()
+static inline uint64_t rdtscidl()
 {
   uint32_t high, low;
-  asm volatile(
-               "CPUID\n\t"
-               "RDTSC\n\t"
-               : "=d" (high), "=a" (low) ::
-               "%rbx", "%rcx");
+  rdtsc(low, high);
+  serialize();
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
 __attribute__((UNUSED))
-static inline uint64_t rdtscpid()
+static inline uint64_t idrdtscl()
 {
   uint32_t high, low;
-  asm volatile("RDTSCP\n\t"
-               "mov %%edx, %0\n\t"
-               "mov %%eax, %1\n\t"
-               "CPUID\n\t"
-               : "=rm" (high), "=rm" (low) ::
-               "%rax", "%rbx", "%rcx", "%rdx");
+  serialize();
+  rdtsc(low, high);
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
 __attribute__((UNUSED))
-static inline uint64_t idrdtscp()
+static inline uint64_t rdtscpidl()
 {
   uint32_t high, low;
-  asm volatile(
-               "CPUID\n\t"
-               "RDTSCP\n\t"
-               : "=d" (high), "=a" (low) ::
-               "%rbx", "%rcx");
+  rdtscp(low, high);
+  serialize();
+  return ((uint64_t) high << 32) + (uint64_t) low;
+}
+
+__attribute__((UNUSED))
+static inline uint64_t idrdtscpl()
+{
+  uint32_t high, low;
+  serialize();
+  rdtscp(low, high);
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
@@ -167,6 +180,10 @@ static void init_timing()
   pd = libperf_initialize(-1,-1); /* init lib */
   libperf_enablecounter(pd, LIBPERF_COUNT_HW_CPU_CYCLES);
                                         /* enable HW counter */
+#elif defined(USE_JEVENTS)
+  printf("Using jevents library\n");
+  if (rdpmc_open(PERF_COUNT_HW_CPU_CYCLES, &ctx) < 0)
+	exit(EXIT_FAILURE);
 #else
   printf("# Using " _xstr(START_COUNTER) " to start and " _xstr(END_COUNTER) " to end measurement\n");
 #endif
@@ -179,6 +196,8 @@ static void clear_timing()
 #elif defined(USE_PERF)
   libperf_close(pd);
   pd = NULL;
+#elif defined(USE_JEVENTS)
+  rdpmc_close (&ctx);
 #endif
 }
 
@@ -189,8 +208,11 @@ static void start_timing()
 #elif defined(USE_PERF)
     start_time = libperf_readcounter(pd, LIBPERF_COUNT_HW_CPU_CYCLES);
                                           /* obtain counter value */
+#elif defined(USE_JEVENTS)
+	start_time = rdpmc_cycles();
+	// start_time = rdpmc_read(&ctx);
 #else
-    start_time = START_COUNTER();
+    // start_time = START_COUNTER();
 #endif
 }
 
@@ -201,6 +223,9 @@ static void end_timing()
 #elif defined(USE_PERF)
     end_time = libperf_readcounter(pd, LIBPERF_COUNT_HW_CPU_CYCLES);
                                           /* obtain counter value */
+#elif defined(USE_JEVENTS)
+    end_time = rdpmc_cycles();
+    // end_time = rdpmc_read(&ctx);
 #else
     end_time = END_COUNTER();
 #endif
