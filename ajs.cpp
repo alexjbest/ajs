@@ -774,6 +774,8 @@ class ajs {
           {
             if (parsed[0] == "ASM_START") // TODO this probably shouldn't be in any files at all...
               break;
+            if (parsed[0] == "GLOBAL_FUNC") // TODO this probably shouldn't be in any files at all...
+              break;
             if (parsed[0] == "end") // a fake instruction sometimes in nasm syntax files, ignored
               break;
 
