@@ -57,30 +57,6 @@ static void repeat_func_call(FuncType callableFunc, uint64_t arg1,
 #endif
 }
 
-template <typename element_type>
-void print_histogram(const element_type *values, const size_t len)
-{
-	size_t count = 1;
-
-	if (len == 0)
-		return;
-
-	element_type last = values[0];
-	for (int i = 1; i <= len; i++) {
-		if (i < len && values[i] == last) {
-			count++;
-		} else {
-			if (count == 1)
-				cout << " " << last;
-			else
-				cout << " " << last << "*" << count;
-			if (i < len)
-				last = values[i];
-			count = 1;
-		}
-	}
-}
-
 
 class ajs {
 
