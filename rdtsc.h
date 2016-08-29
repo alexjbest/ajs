@@ -162,7 +162,7 @@ unsigned long rdpmc_cycles()
 static void init_timing()
 {
 #ifdef USE_INTEL_PCM
-  printf("Using Intel PCM library\n");
+  printf("# Using Intel PCM library\n");
   m = PCM::getInstance();
   if (m->program() != PCM::Success) {
     printf("Could not initialise PCM\n");
@@ -171,17 +171,17 @@ static void init_timing()
 
   const bool have_smt = m->getSMT();
   if (have_smt) {
-	  printf("CPU uses SMT\n");
+	  printf("# CPU uses SMT\n");
   } else {
-	  printf("CPU does not use SMT\n");
+	  printf("# CPU does not use SMT\n");
   }
 #elif defined(USE_PERF)
-  printf("Using PERF library\n");
+  printf("# Using PERF library\n");
   pd = libperf_initialize(-1,-1); /* init lib */
   libperf_enablecounter(pd, LIBPERF_COUNT_HW_CPU_CYCLES);
                                         /* enable HW counter */
 #elif defined(USE_JEVENTS)
-  printf("Using jevents library\n");
+  printf("# Using jevents library\n");
   if (rdpmc_open(PERF_COUNT_HW_CPU_CYCLES, &ctx) < 0)
 	exit(EXIT_FAILURE);
 #else
