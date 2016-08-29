@@ -1325,6 +1325,14 @@ class ajs {
       return bestTime;
     }
 
+    static size_t round_up(const size_t s, const size_t m)
+    {
+    	assert(m > 0);
+    	if (s == 0)
+    		return 0;
+    	return ((s - 1) / m + 1) * m;
+    }
+
     // core superoptimise function, takes a function as a list of Lines, to and
     // from indexes, limb count and signature (and optionally a line in which
     // to insert up to 3 nops) and returns the valid reordering of func that
@@ -1339,11 +1347,17 @@ class ajs {
       uint64_t arg1 = 0, arg2 = 0, arg3 = 0, arg4 = 0, arg5 = 0, arg6 = 0;
 
       // set up arguments for use by function
-      mpn1 = (uint64_t*)aligned_alloc(4096, (limbs + 1) * sizeof(uint64_t));
-      mpn2 = (uint64_t*)aligned_alloc(4096, limbs * sizeof(uint64_t));
-      mpn3 = (uint64_t*)aligned_alloc(4096, limbs * sizeof(uint64_t));
-      // double size mpn, e.g. for output of mpn_mul
-      mpn4 = (uint64_t*)aligned_alloc(4096, 2 * limbs * sizeof(uint64_t));
+      const size_t size1 = round_up((limbs + 1) * sizeof(uint64_t), 16),
+              size2 = round_up(limbs * sizeof(uint64_t), 16),
+              size3 = round_up(limbs * sizeof(uint64_t), 16),
+              size4 = round_up(2 * limbs * sizeof(uint64_t), 16),
+              size_total = size1 + size2 + size3 + size4;
+
+      mpn1 = (uint64_t*)aligned_alloc(4096, size_total);
+      mpn2 = mpn1 + size1 / sizeof(uint64_t);
+      mpn3 = mpn2 + size2 / sizeof(uint64_t);
+      // rest is a double size mpn, e.g. for output of mpn_mul
+      mpn4 = mpn3 + size3 / sizeof(uint64_t);
       mp_size_t k = 1;
       if (signature.substr(0, 6) == "mod_1_")
         k = signature.at(6) - '0';
@@ -1417,9 +1431,6 @@ class ajs {
       }
 
       free(mpn1);
-      free(mpn2);
-      free(mpn3);
-      free(mpn4);
 
       return bestTime;
     }
