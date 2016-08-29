@@ -1538,6 +1538,10 @@ class ajs {
         assembler.reset();
         assembler.setLogger(&logger);
         FILE* of = fopen(outFile, "w");
+        if (of == NULL) {
+            perror("Error opening output file: ");
+            exit(1);
+        }
         logger.setStream(of);
         logger.logFormat(Logger::kStyleComment,
             "# This file was produced by ajs, the MPIR assembly superoptimiser\n");
