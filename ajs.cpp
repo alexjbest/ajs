@@ -1781,7 +1781,8 @@ int main(int argc, char* argv[])
   }
 
   init_timing();
-  return ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax,
+  int rc = ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax,
       signature, nopLine, loop, prepend, append, maxPerms, removeLabels, includeLeadIn);
   clear_timing();
+  return rc;
 }
