@@ -22,6 +22,8 @@ std::string &rtrim(std::string &s);
 // trim from both ends
 std::string &trim(std::string &s);
 
+bool containsAlpha(const std::string &s);
+
 template <typename element_type>
 void print_histogram(const element_type *values, const size_t len);
 

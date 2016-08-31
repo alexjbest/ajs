@@ -5,8 +5,9 @@
  *      Author: kruppa
  */
 
-#include <utils.h>
+#include <cctype>
 #include <cassert>
+#include "utils.h"
 
 using std::endl;
 using std::cout;
@@ -56,6 +57,15 @@ string &rtrim(string &s) {
 
 string &trim(string &s) {
   return ltrim(rtrim(s));
+}
+
+bool containsAlpha(const string &s)
+{
+    for (string::const_iterator it = s.begin(); it != s.end(); it++) {
+        if (isalpha(*it))
+            return true;
+    }
+    return false;
 }
 
 template <typename element_type>
