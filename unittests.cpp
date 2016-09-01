@@ -1,7 +1,10 @@
 #include <string>
 #include <cassert>
 #include <cstdarg>
+#include <iostream>
 #include "utils.h"
+#include "eval.h"
+#include "ajs_parsing.h"
 
 using std::string;
 using std::vector;
@@ -90,9 +93,66 @@ bool tests_split_sum()
     test_split_sum("-a-b", 2, "-a", "-b");
 }
 
+bool
+test_eval(const char *expression, eval_type expected_result)
+{
+    eval_type result = eval(expression);
+    if (result != expected_result) {
+        cout << "Error evaluating " << expression << ", got result " << result << " but expected " << expected_result << endl;
+        return false;
+    }
+    return true;
+}
+
+bool
+tests_eval()
+{
+  return test_eval("1", 1) &&
+          test_eval("1+2", 3) &&
+          test_eval("1-2", -1) &&
+          test_eval("-1+2", 1) &&
+          test_eval("-1-2", -3) &&
+          test_eval("1*2", 2) &&
+          test_eval("1*(2+3)", 5) &&
+          test_eval("(1+2)*3", 9) &&
+          test_eval("(1+2)*(3+4)", 21) &&
+          test_eval("1+(-((2+3)))*(4+5)-6", -50) &&
+          test_eval("6/2", 3) &&
+          test_eval("1/2", 0) &&
+          test_eval("(1+2)*(2+2)/6", 2);
+}
+
+bool
+test_parse_pointer_intel(const char *ptr_text, uint32_t const size)
+{
+    asmjit::X86Mem ptr;
+    string ptr_string = ptr_text;
+
+    ptr = parse_pointer_intel(ptr_string, size, true);
+    return true;
+}
+
+bool
+tests_parse_pointer_intel()
+{
+    test_parse_pointer_intel("[123]", 4);
+    test_parse_pointer_intel("[rbx]", 4);
+    test_parse_pointer_intel("[123+rbx]", 4);
+    test_parse_pointer_intel("[rbx*8]", 4);
+    test_parse_pointer_intel("[123+rbx*8]", 4);
+    test_parse_pointer_intel("[rbx+rsi]", 4);
+    test_parse_pointer_intel("[123+rbx+rsi]", 4);
+    test_parse_pointer_intel("[123+rbx*8+rsi]", 4);
+    test_parse_pointer_intel("[12-4+rbx*8+rsi+(-7*8)]", 4);
+    return true;
+}
+
+
 int main()
 {
     tests_skip_brackets();
     tests_split_sum();
+    tests_eval();
+    tests_parse_pointer_intel();
     return(0);
 }
