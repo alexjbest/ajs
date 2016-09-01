@@ -66,20 +66,6 @@ class ajs {
     static X86Assembler assembler;
     static FileLogger logger;
 
-    // Parses a string integer, detects hex or decimal and basic expressions e.g. 3-5
-    static int64_t getVal(string val) {
-      val = trim(val);
-      if (val.substr(1, 4) == "word")
-        val = val.substr(5);
-      size_t loc = val.find_first_of("+-\0", 1);
-      if (loc != std::string::npos)
-        return getVal(val.substr(0, loc)) + getVal(val.substr(loc));
-      loc = val.find('x');
-      if (loc != std::string::npos)
-        return std::stol(val.c_str(), NULL, 16);
-      return std::stol(val.c_str(), NULL, 10);
-    }
-
     static Imm getValAsImm(string val) {
       return Imm(getVal(val));
     }

@@ -32,3 +32,6 @@ skip_brackets(std::string::iterator start, std::string::iterator end);
 
 std::vector<std::string>
 split_sum(std::string::iterator start, std::string::iterator end);
+
+int64_t
+getVal(std::string val);

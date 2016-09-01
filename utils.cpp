@@ -163,3 +163,17 @@ split_sum(string::iterator start, string::iterator end)
 
     return tokens;
 }
+
+// Parses a string integer, detects hex or decimal and basic expressions e.g. 3-5
+int64_t getVal(string val) {
+  val = trim(val);
+  if (val.substr(1, 4) == "word")
+    val = val.substr(5);
+  size_t loc = val.find_first_of("+-\0", 1);
+  if (loc != std::string::npos)
+    return getVal(val.substr(0, loc)) + getVal(val.substr(loc));
+  loc = val.find('x');
+  if (loc != std::string::npos)
+    return std::stol(val.c_str(), NULL, 16);
+  return std::stol(val.c_str(), NULL, 10);
+}
