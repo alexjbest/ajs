@@ -1085,7 +1085,7 @@ class ajs {
       vector< int > remaining(to + 2 - from);
       list<int> perm;
 
-      for (int i = 0; i < func.size(); i++)
+      for (size_t i = 0; i < func.size(); i++)
         perm.insert(perm.end(), i);
 
 
@@ -1249,7 +1249,7 @@ class ajs {
 
       list<int> idPerm;
 
-      for (int i = 0; i < func.size(); i++)
+      for (size_t i = 0; i < func.size(); i++)
         idPerm.insert(idPerm.end(), i);
 
       // 'warm up' the processor?
@@ -1391,7 +1391,7 @@ class ajs {
           start = 0;
       }
 
-      if ((end > func.size() - 1) || (start > end))
+      if ((end + 1 > func.size()) || (start > end))
       {
         printf("error: invalid range (function is %lu lines long)\n", func.size());
         exit(EXIT_FAILURE);
