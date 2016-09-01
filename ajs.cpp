@@ -23,11 +23,11 @@
 #include "transform.h"
 #include "utils.h"
 #include "rdtsc.h"
+#include "ajs_parsing.h"
 
 #include "config.h"
 
 
-#define regreg(N)  do {if (name == #N) return N;} while(0)
 #define debug_print(fmt, ...) \
   do { fprintf(stderr, "# %s:%d:%s(): " fmt, __FILE__, \
       __LINE__, __func__, __VA_ARGS__); } while (0)
@@ -70,60 +70,14 @@ class ajs {
       return Imm(getVal(val));
     }
 
-    static X86Reg getXmmRegFromName(string name) {
-      regreg(xmm0);
-      regreg(xmm1);
-      regreg(xmm2);
-      regreg(xmm3);
-      regreg(xmm4);
-      regreg(xmm5);
-      regreg(xmm6);
-      regreg(xmm7);
-      regreg(xmm8);
-      regreg(xmm9);
-      regreg(xmm10);
-      regreg(xmm11);
-      regreg(xmm12);
-      regreg(xmm13);
-      regreg(xmm14);
-      regreg(xmm15);
-      return noGpReg;
-    }
-
-    static X86GpReg getGpRegFromName(string name) {
-      regreg(rax);  regreg(eax);   regreg(ax);   regreg(ah);  regreg(al);
-      regreg(rbx);  regreg(ebx);   regreg(bx);   regreg(bh);  regreg(bl);
-      regreg(rcx);  regreg(ecx);   regreg(cx);   regreg(ch);  regreg(cl);
-      regreg(rdx);  regreg(edx);   regreg(dx);   regreg(dh);  regreg(dl);
-      regreg(rbp);  regreg(ebp);   regreg(bp);
-      regreg(rsp);  regreg(esp);   regreg(sp);
-      regreg(rsi);  regreg(esi);   regreg(si);
-      regreg(rdi);  regreg(edi);   regreg(di);
-      regreg(r8);   regreg(r8d);   regreg(r8w);               regreg(r8b);
-      regreg(r9);   regreg(r9d);   regreg(r9w);               regreg(r9b);
-      regreg(r10);  regreg(r10d);  regreg(r10w);              regreg(r10b);
-      regreg(r11);  regreg(r11d);  regreg(r11w);              regreg(r11b);
-      regreg(r12);  regreg(r12d);  regreg(r12w);              regreg(r12b);
-      regreg(r13);  regreg(r13d);  regreg(r13w);              regreg(r13b);
-      regreg(r14);  regreg(r14d);  regreg(r14w);              regreg(r14b);
-      regreg(r15);  regreg(r15d);  regreg(r15w);              regreg(r15b);
-      return noGpReg;
-    }
-
-    static X86Reg getRegFromName(string name) {
-      if (name.at(0) == 'x')
-        return getXmmRegFromName(name);
-      return getGpRegFromName(name);
-    }
-
     // Parses expressions of the form disp(base,index,scalar) or
     // [base+index*scale+disp] into asmjit's X86Mem
-    static X86Mem getPtrFromAddress(string addr, uint32_t size, int intelSyntax)
+    static X86Mem getPtrFromAddress(string addr, uint32_t const size,
+            const int intelSyntax)
     {
-      const char openBracket = intelSyntax ? '[' : '(';
       if (!intelSyntax) // GAS syntax
       {
-        size_t i = addr.find(openBracket);
+        size_t i = addr.find('(');
         int32_t disp = 0;
         if (i > 0)
         {
@@ -157,66 +111,7 @@ class ajs {
       }
       else // Intel syntax
       {
-        X86GpReg base = noGpReg, index = noGpReg;
-        size_t i, pi;
-        int32_t disp = 0;
-        uint32_t shift = 0;
-        int wantShift = 0, neg = 0;
-        string token;
-        for (i = addr.find(openBracket) + 1, pi = i; i < addr.size(); i++)
-        {
-          if (addr.at(i) == '+' || addr.at(i) == '-' || addr.at(i) == '*' ||
-              addr.at(i) == ']')
-          {
-            token = addr.substr(pi, i - pi);
-            try // Is it a number?
-            {
-              uint32_t val = getVal(token);
-              if (wantShift) {
-                shift =
-                  (val == 1) ? 0 :
-                  (val == 2) ? 1 :
-                  (val == 4) ? 2 :
-                  (val == 8) ? 3 : -1;
-                if (index == noGpReg) {
-                  index = base;
-                  base = noGpReg;
-                }
-              }
-              else {
-                disp = neg ? -val : val;
-              }
-            }
-            catch (...) {
-              if (base == noGpReg)
-                base = getGpRegFromName(token);
-              else
-                index = getGpRegFromName(token);
-            }
-
-            pi = i + 1;
-            if (addr.at(i) == '*') {
-              wantShift = 1;
-            }
-            else {
-              wantShift = 0;
-            }
-            if (addr.at(i) == '-') {
-              neg = 1;
-            }
-            else {
-              neg = 0;
-            }
-          }
-        }
-        if (index != noGpReg) {
-          if (base == noGpReg)
-            return ptr_abs(0, index, shift, disp, size);
-          return ptr(base, index, shift, disp, size);
-        }
-        if (base == noGpReg)
-          return ptr_abs(0, disp, size);
-        return ptr(base, disp, size);
+        return parse_pointer_intel(addr, size);
       }
     }
 
