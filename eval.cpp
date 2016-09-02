@@ -64,7 +64,7 @@ parse_factor(const char * &expr)
         consume_or_die(expr, ')');
     } else {
         char *end_expr;
-        result = strtoul(expr, &end_expr, 10);
+        result = strtoul(expr, &end_expr, 0);
         expr = end_expr;
     }
 
