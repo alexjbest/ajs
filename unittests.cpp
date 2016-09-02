@@ -94,33 +94,47 @@ bool tests_split_sum()
 }
 
 bool
-test_eval(const char *expression, eval_type expected_result)
+test_eval(const char *expression, eval_type expected_result, size_t expected_parse_len = SIZE_MAX);
+
+bool
+test_eval(const char *expression, eval_type expected_result, size_t expected_parse_len)
 {
-    eval_type result = eval(expression);
+    const char *endp;
+    bool ok = true;
+    if (expected_parse_len == SIZE_MAX)
+        expected_parse_len = strlen(expression);
+    eval_type result = eval(expression, &endp);
     if (result != expected_result) {
         cout << "Error evaluating " << expression << ", got result " << result << " but expected " << expected_result << endl;
-        return false;
+        ok = false;;
     }
-    return true;
+    if (endp != expression + expected_parse_len) {
+        cout << "Error evaluating " << expression << ", parsed "
+                << (endp - expression) << " characters but expected to parse "
+                << expected_parse_len << endl;
+    }
+    return ok;
 }
 
 bool
 tests_eval()
 {
-  return test_eval("1", 1) &&
-          test_eval("1+2", 3) &&
-          test_eval("1-2", -1) &&
-          test_eval("-1+2", 1) &&
-          test_eval("-1-2", -3) &&
-          test_eval("1*2", 2) &&
-          test_eval("1*(2+3)", 5) &&
-          test_eval("(1+2)*3", 9) &&
-          test_eval("(1+2)*(3+4)", 21) &&
-          test_eval("1+(-((2+3)))*(4+5)-6", -50) &&
-          test_eval("6/2", 3) &&
-          test_eval("1/2", 0) &&
-          test_eval("(1+2)*(2+2)/6", 2) &&
-          test_eval(" ( 12 + 34 )*( 56 + 78 ) / 23", 268);
+    return test_eval("a", 0, 0) &&
+            test_eval("1", 1) &&
+            test_eval("1+2", 3) &&
+            test_eval("1-2", -1) &&
+            test_eval("-1+2", 1) &&
+            test_eval("-1-2", -3) &&
+            test_eval("1*2", 2) &&
+            test_eval("1*(2+3)", 5) &&
+            test_eval("(1+2)*3", 9) &&
+            test_eval("(1+2)*(3+4)", 21) &&
+            test_eval("1+(-((2+3)))*(4+5)-6", -50) &&
+            test_eval("6/2", 3) &&
+            test_eval("1/2", 0) &&
+            test_eval("(1+2)*(2+2)/6", 2) &&
+            test_eval(" ( 12 + 34 )*( 56 + 78 ) / 23", 268) &&
+            test_eval(" ( 0xc + 0x22 )*( 0x38 + 0x4E ) / 0x17", 268);
 }
 
 bool
