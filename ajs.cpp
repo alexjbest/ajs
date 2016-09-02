@@ -24,6 +24,7 @@
 #include "utils.h"
 #include "rdtsc.h"
 #include "ajs_parsing.h"
+#include "eval.h"
 
 #include "config.h"
 
@@ -149,23 +150,31 @@ class ajs {
         X86Reg reg = getRegFromName(op);
         if (reg != noGpReg) // Is it a register?
           return reg;
-        try // Is it an immediate?
-        {
-          Imm val = getValAsImm(op);
-          return val;
+        // Is it an immediate?
+        const char *op_str = op.c_str(), *endp;
+        int32_t imm_value = eval(op_str, &endp);
+        if (false) {
+            cout << "# Evaluating \"" << op << "\" produced " << imm_value
+                    << " with rest \"" << endp << "\"" << endl;
         }
-        catch (...)
+        if (endp == op_str + strlen(op_str)) {
+            return Imm(imm_value);
+        }
+        // If we parsed a number other than 0 and text remains on the line,
+        // signal a parsing error
+        if (imm_value != 0) {
+            cout << "Error parsing \"" << op << "\"" << endl;
+            abort();
+        }
+        if (op.length() > 0) // No, it's a label!
         {
-          if (op.length() > 0) // No, it's a label!
-          {
             if (labels.count(op) == 0)
             {
-              labels[op] = assembler.newLabel();
-              useCounts[op] = 0;
+                labels[op] = assembler.newLabel();
+                useCounts[op] = 0;
             }
             useCounts[op]++;
             return labels[op];
-          }
         }
       }
       assert(0);
