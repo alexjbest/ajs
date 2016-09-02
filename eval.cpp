@@ -27,6 +27,8 @@ static eval_type parse_expr(const char * &expr);
 static bool
 consume(const char * &expr, const char c)
 {
+    while (expr[0] == ' ')
+        expr++;
     bool match = (expr[0] == c);
     expr += match ? 1 : 0;
     return match;
