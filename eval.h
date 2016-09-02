@@ -3,6 +3,6 @@
 
 typedef int eval_type;
 
-eval_type eval(const char* expr_text);
+eval_type eval(const char* expr_text, const char **endp = NULL);
 
 #endif

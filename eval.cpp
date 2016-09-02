@@ -102,7 +102,10 @@ parse_expr(const char * &expr)
 }
 
 eval_type
-eval(const char * expr)
+eval(const char * expr, const char **endp)
 {
-    return parse_expr(expr);
+    eval_type result = parse_expr(expr);
+    if (endp != NULL)
+        *endp = expr;
+    return result;
 }
