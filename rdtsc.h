@@ -20,9 +20,10 @@
 #endif
 
 #ifdef USE_INTEL_PCM
+    #include <sched.h>
 	#include "cpucounters.h"
 	static PCM * m;
-	static CoreCounterState before_sstate, after_state;
+	static CoreCounterState before_sstate, after_sstate;
 #elif defined USE_PERF
 	#include "libperf.h"  /* standard libperf include */
 	static struct libperf_data* pd;
@@ -204,6 +205,7 @@ static void clear_timing()
 static void start_timing()
 {
 #ifdef USE_INTEL_PCM
+    const int cpu = sched_getcpu();
     before_sstate = getCoreCounterState(cpu);
 #elif defined(USE_PERF)
     start_time = libperf_readcounter(pd, LIBPERF_COUNT_HW_CPU_CYCLES);
@@ -219,6 +221,7 @@ static void start_timing()
 static void end_timing()
 {
 #ifdef USE_INTEL_PCM
+    const int cpu = sched_getcpu();
     after_sstate = getCoreCounterState(cpu);
 #elif defined(USE_PERF)
     end_time = libperf_readcounter(pd, LIBPERF_COUNT_HW_CPU_CYCLES);
