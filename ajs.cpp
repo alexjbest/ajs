@@ -829,14 +829,7 @@ class ajs {
           repeat_func_call(callableFunc, arg1, arg2, arg3, arg4, arg5, arg6);
           end_timing();
 
-          const uint64_t diff = get_diff_timing();
-          if (diff == 0 || diff < overhead) {
-              printf("Timing resulted in %lu cycles with %f overhead\n", diff, overhead);
-          } else {
-        	  // printf("Timing resulted in %llu cycles with %f overhead\n", diff, overhead);
-        	  times[i] = diff - overhead;
-          }
-
+          times[i] = get_diff_timing();
           /*if (0 && target != 0 && k >= LOOPSIZE >> 1 && curTotal > (target + 20) * (k + 1))
           {
             if (verbose)
@@ -873,17 +866,16 @@ class ajs {
       total = times[TRIALS/10];
 #endif
 
-      if (verbose)
-        printf("# total time: %lf\n", total);
-
       static double last_total = 0.;
       static unsigned long in_a_row = 0;
 
-      if (total == last_total && in_a_row < 1000) {
+      if (verbose && total == last_total && in_a_row < 1000) {
           in_a_row++;
-      } else {
-          cout << "# Had " << last_total << " cycles " << in_a_row <<" times in a row." << endl;
-          fflush(stdout);
+      } else if (verbose) {
+          if (in_a_row > 0) {
+              cout << "# Had " << last_total << " cycles " << in_a_row << " times in a row." << endl;
+              fflush(stdout);
+          }
           last_total = total;
           in_a_row = 1;
           cout << "# New timings:";
@@ -892,8 +884,13 @@ class ajs {
       }
 
       ajs::runtime.release((void*)callableFunc);
+      if (total == 0 || total < overhead) {
+          printf("# Timing resulted in %f cycles with %f overhead\n", total, overhead);
+      } else if (verbose) {
+          printf("# Timing resulted in %f cycles of which %f are overhead\n", total, overhead);
+      }
 
-      return total;
+      return total - overhead;
     }
 
     // adds the function func with the permutation perm applied to the X86Assembler
