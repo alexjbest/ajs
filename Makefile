@@ -1,51 +1,58 @@
-LIBASMJIT = libasmjit.a
-ASMJITBASE = asmjit
-INTELPCMBASE = ../intelpcm/intelpcm.so
-GMPBASE = ../gmp-6.1.0
-CC = g++
+LIB_ASMJIT = $(HOME)/lib/libasmjit.a
+INCLUDE_ASMJIT = $(HOME)/include/asmjit/
+
+INTELPCM_BASE = $(HOME)/sources/IntelPerformanceCounterMonitor-V2.11
+INCLUDE_INTELPCM = -I$(INTELPCM_BASE)
+LIB_INTELPCM = $(INTELPCM_BASE)/intelpcm.so/libintelpcm.a
+
+GMPIMPL = $(HOME)/sources/gmp-6.1.1/
+GMPMPARAM = $(HOME)/build/gmp-6.1.1/
+
+JEVENTS_BASE = ../pmu-tools/jevents/
+INCLUDE_JEVENTS = -I$(JEVENTS_BASE)
+LIB_JEVENTS = -L$(JEVENTS_BASE) -ljevents
+
+LIBPERF = -lperf
+
+CC = gcc
+CXX = g++
 ODIR = obj
 SDIR = src
-INC = -I. -I$(ASMJITBASE) -I$(GMPBASE)
-CFLAGS = -g -Wno-attributes -O2 --std=c++0x -lasmjit -lgmp
+INC = -I. -I$(INCLUDE_ASMJIT) -I$(GMPIMPL) -I$(GMPMPARAM)
+LIB = -lasmjit -lgmp
+CFLAGS = -g -O2 -std=gnu11 -Wall -Wextra
+CXXFLAGS = -g -O2 --std=c++0x -Wall
 
-ASMJITOBJS = $(ASMJITBASE)/base/assembler.o $(ASMJITBASE)/base/compiler.o \
-             $(ASMJITBASE)/base/compilercontext.o $(ASMJITBASE)/base/constpool.o \
-             $(ASMJITBASE)/base/containers.o $(ASMJITBASE)/base/cpuinfo.o \
-             $(ASMJITBASE)/base/globals.o $(ASMJITBASE)/base/hlstream.o \
-             $(ASMJITBASE)/base/logger.o $(ASMJITBASE)/base/operand.o \
-             $(ASMJITBASE)/base/podvector.o $(ASMJITBASE)/base/runtime.o \
-             $(ASMJITBASE)/base/utils.o $(ASMJITBASE)/base/vmem.o $(ASMJITBASE)/base/zone.o \
-             $(ASMJITBASE)/x86/x86assembler.o $(ASMJITBASE)/x86/x86compiler.o \
-             $(ASMJITBASE)/x86/x86compilercontext.o $(ASMJITBASE)/x86/x86compilerfunc.o \
-             $(ASMJITBASE)/x86/x86inst.o $(ASMJITBASE)/x86/x86operand.o \
-             $(ASMJITBASE)/x86/x86operand_regs.o
+AJSOBJS = line.o transform.o utils.o ajs_parsing.o eval.o
+TESTSOBJS = utils.o ajs_parsing.o eval.o
 
-INTELPCMOBJS = $(INTELPCMBASE)/client_bw.o \
-		$(INTELPCMBASE)/cpucounters.o \
-		$(INTELPCMBASE)/msr.o \
-		$(INTELPCMBASE)/pci.o \
-		$(INTELPCMBASE)/utils.o
+all: ajs ajs-perf ajs-jev
 
-AJSOBJS = line.o transform.o
+ajs: $(LIB_ASMJIT) $(AJSOBJS) ajs.cpp *.h
+	$(CXX) -o $@ ajs.cpp $(AJSOBJS) $(INC) $(CXXFLAGS) $(LIB_ASMJIT) $(LIB)
 
-all: ajs
+ajs-pcm: $(LIB_ASMJIT) $(AJSOBJS) ajs.cpp *.h
+	$(CXX) -o $@ ajs.cpp -DUSE_INTEL_PCM=1 $(AJSOBJS) $(INC) $(CXXFLAGS) $(INCLUDE_INTELPCM) $(LIB_ASMJIT) $(LIB_INTELPCM) $(LIB) -pthread
 
-ajs: $(LIBASMJIT) $(AJSOBJS) ajs.cpp *.h
-	$(CC) -o ajs ajs.cpp $(AJSOBJS) -L. $(INC) $(CFLAGS)
+ajs-perf: $(LIB_ASMJIT) $(AJSOBJS) ajs.cpp *.h
+	$(CXX) -o $@ ajs.cpp -DUSE_PERF=1 $(AJSOBJS) $(INC) $(CXXFLAGS) $(LIB_ASMJIT) $(LIBPERF) $(LIB) -pthread -static
 
-ajs-pcm: $(INTELPCMOBJS) $(LIBASMJIT) $(AJSOBJS) ajs.cpp *.h
-	$(CC) -o ajs ajs.cpp $(INTELPCMOBJS) $(AJSOBJS) -L. $(INC) $(CFLAGS) -pthread
+ajs-jev: $(LIB_ASMJIT) $(AJSOBJS) ajs.cpp *.h
+	$(CXX) -o $@ ajs.cpp -DUSE_JEVENTS=1 $(AJSOBJS) $(INC) $(CXXFLAGS) $(INCLUDE_JEVENTS) $(LIB_ASMJIT) $(LIB_JEVENTS) $(LIB)
 
 %.o: %.cpp
+	$(CXX) -c $(INC) -o $@ $< $(CXXFLAGS)
+
+%.o: %.c
 	$(CC) -c $(INC) -o $@ $< $(CFLAGS)
 
-$(LIBASMJIT): $(ASMJITOBJS)
-	ar rvs $(LIBASMJIT) $^
+unittests: unittests.cpp $(TESTSOBJS)
+	$(CXX) -o $@ $< -O0 -g -Wall -Wextra $(TESTSOBJS) $(LIB)
+	
+check: unittests
+	./unittests
 
 clean:
-	rm -f $(ASMJITOBJS) $(LIBASMJIT) $(AJSOBJS) ajs
+	rm -f $(AJSOBJS) ajs ajs-pcm ajs-perf ajs-jev unittests
 
-check: all
-	./test
-
-.PHONY: clean check all ajs-pcm
+.PHONY: clean check all ajs ajs-pcm ajs-perf ajs-jev
