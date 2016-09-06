@@ -17,6 +17,7 @@
 #include <sched.h>
 #include <unistd.h>
 #include "gmp.h"
+#define HAVE_MEMSET 1
 #include "gmp-impl.h"
 #include "longlong.h"
 #include "line.h"
