@@ -980,18 +980,26 @@ class ajs {
       {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = limbs;
+        cout << "# Using signature " << signature << "("
+                << (void *) arg1 << ", " << arg2 << ")" << endl;
       }
       else if (signature == "store")
       {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = limbs;
         arg3 = (uint64_t) 123124412;
+        cout << "# Using signature " << signature << "("
+                << (void *) arg1 << ", " << arg2 << ", " << arg3 << ")"
+                << endl;
       }
       else if (signature == "com_n")
       {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = limbs;
+        cout << "# Using signature " << signature << "("
+                << (void *) arg1 << ", " << (void *) arg2 << ", " << arg3
+                << ")" << endl;
       }
       else if (signature == "lshift")
       {
@@ -999,6 +1007,9 @@ class ajs {
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = limbs;
         arg4 = (uint64_t)31;
+        cout << "# Using signature " << signature << "("
+                << (void *) arg1 << ", " << (void *) arg2 << ", " << arg3 << ", "
+                << arg4 << ")" << endl;
       }
       else if (signature == "addadd_n")
       {
@@ -1007,6 +1018,10 @@ class ajs {
         arg3 = reinterpret_cast<uint64_t>(mpn3);
         arg4 = reinterpret_cast<uint64_t>(mpn4);
         arg5 = limbs;
+        cout << "# Using signature " << signature << "("
+                << (void *) arg1 << ", " << (void *) arg2 << ", "
+                << (void *) arg3 << ", " << (void *) arg4 << ", " << arg5
+                << ")" << endl;
       }
       else if (signature == "addlsh_n")
       {
@@ -1015,6 +1030,10 @@ class ajs {
         arg3 = reinterpret_cast<uint64_t>(mpn3);
         arg4 = limbs;
         arg5 = (uint64_t)31;
+        cout << "# Using signature " << signature << "("
+                << (void *) arg1 << ", " << (void *) arg2 << ", "
+                << (void *) arg3 << ", " << arg4 << ", " << arg5
+                << ")" << endl;
       }
       else if (signature == "addmul_1")
       {
@@ -1022,6 +1041,9 @@ class ajs {
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = limbs;
         arg4 = (uint64_t)14412932479013124615ULL;
+        cout << "# Using signature " << signature << "("
+                << (void *) arg1 << ", " << (void *) arg2 << ", "
+                << arg3 << ", " << arg4 << ")" << endl;
       }
       else if (signature == "addmul_2")
       {
@@ -1029,6 +1051,9 @@ class ajs {
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = limbs;
         arg4 = reinterpret_cast<uint64_t>(mpn3);
+        cout << "# Using signature " << signature << "("
+                << (void *) arg1 << ", " << (void *) arg2 << ", "
+                << arg3 << ", " << (void *) arg4 << ")" << endl;
       }
       else if (signature.substr(0, 6) == "mod_1_")
       {
@@ -1056,6 +1081,9 @@ class ajs {
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = limbs;
         arg4 = reinterpret_cast<uint64_t>(db);
+        cout << "# Using signature " << signature << "("
+                << (void *) arg1 << ", " << (void *) arg2 << ", "
+                << arg3 << ", " << (void *) arg4 << ")" << endl;
       }
       else if (signature == "mul_basecase")
       {
@@ -1064,12 +1092,19 @@ class ajs {
         arg3 = limbs;
         arg4 = reinterpret_cast<uint64_t>(mpn2);
         arg5 = limbs;
+        cout << "# Using signature " << signature << "("
+                << (void *) arg1 << ", " << (void *) arg2 << ", "
+                << arg3 << ", " << (void *) arg4 << ", " << arg5 << ")"
+                << endl;
       }
       else if (signature == "sqr_basecase")
       {
         arg1 = reinterpret_cast<uint64_t>(mpn4);
         arg2 = reinterpret_cast<uint64_t>(mpn1);
         arg3 = limbs;
+        cout << "# Using signature " << signature << "("
+                << (void *) arg1 << ", " << (void *) arg2 << ", "
+                << arg3 << ")" << endl;
       }
       else
       {
@@ -1079,6 +1114,9 @@ class ajs {
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = reinterpret_cast<uint64_t>(mpn3);
         arg4 = limbs;
+        cout << "# Using signature " << signature << "("
+                << (void *) arg1 << ", " << (void *) arg2 << ", "
+                << (void *) arg3 << ", " << arg4 << ")" << endl;
       }
     }
 
