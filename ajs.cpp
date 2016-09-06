@@ -883,7 +883,6 @@ class ajs {
           cout << endl;
       }
 
-      ajs::runtime.release((void*)callableFunc);
       if (total == 0 || total < overhead) {
           printf("# Timing resulted in %f cycles with %f overhead\n", total, overhead);
       } else if (verbose) {
@@ -953,25 +952,13 @@ class ajs {
         uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4,
         uint64_t arg5, uint64_t arg6)
     {
-      double times[2] = {-1, -1};
-      do {
-        for (int i = 0; i < 2; i++)
-        {
-          assembler.reset();
-
-          addFunc(func, perm, numLabels, transforms);
-          void* funcPtr = assembler.make();
-          times[i] = callFunc(funcPtr, target, verbose, overhead,
-              arg1, arg2, arg3, arg4, arg5, arg6);
-
-        }
-      }
-      while (times[0] - times[1] > 0.25L);
-
-      if (times[1] < times[0])
-        times[0] = times[1];
-
-      return times[0];
+        assembler.reset();
+        addFunc(func, perm, numLabels, transforms);
+        void* funcPtr = assembler.make();
+        double times = callFunc(funcPtr, target, verbose, overhead,
+                arg1, arg2, arg3, arg4, arg5, arg6);
+        ajs::runtime.release(funcPtr);
+        return times;
     }
 
     // sets arg1-6 based on signature using: mpn1-3 (of length limbs),
