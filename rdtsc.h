@@ -34,8 +34,8 @@
 	struct rdpmc_ctx ctx;
 	uint64_t start_time, end_time;
 #else
-#define START_COUNTER rdpmc_cycles
-#define END_COUNTER rdpmc_cycles
+#define START_COUNTER rdtscpl
+#define END_COUNTER rdtscpl
 	static uint64_t start_time, end_time;
 #endif
 
@@ -212,7 +212,7 @@ static void start_timing()
 	start_time = rdpmc_cycles();
 	// start_time = rdpmc_read(&ctx);
 #else
-    // start_time = START_COUNTER();
+    start_time = START_COUNTER();
 #endif
 }
 
