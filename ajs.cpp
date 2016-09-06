@@ -813,11 +813,15 @@ class ajs {
       double total;
       volatile int k = 0;
 
-
       // Using asmjit_cast is purely optional, it's basically a C-style cast
       // that tries to make it visible that a function-type is returned.
       FuncType callableFunc = asmjit_cast<FuncType>(funcPtr);
       int times[TRIALS];
+
+      /* Call function a few times to fetch code and data into caches,
+       * set up branch prediction, etc. */
+      for (int i = 0 ; i < PREFETCH_CALLS ; i++)
+          repeat_func_call(callableFunc, arg1, arg2, arg3, arg4, arg5, arg6);
 
       total = -1;
       for (int i = 0; i < TRIALS; i++)
