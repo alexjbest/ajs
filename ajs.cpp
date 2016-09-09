@@ -568,6 +568,9 @@ class ajs {
       }
 
       assembler.reset();
+      if (verbose >= 2) {
+          assembler.setLogger(&logger);
+      }
 
       // set which chars define which line types based on intelSyntax flag
       const char commentChar   = intelSyntax ? ';' : '#';
@@ -767,6 +770,11 @@ class ajs {
               assert(newLine.isValid());
           }
           func.insert(func.end(), newLine);
+          if (verbose >= 2 && newLine.isInstruction()) {
+              cout << "# Parsed: " << str << endl;
+              assembler.emit(newLine.getInstruction(), newLine.getOp(0), newLine.getOp(1),
+                      newLine.getOp(2));
+          }
         }
       }
 
