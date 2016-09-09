@@ -899,7 +899,7 @@ class ajs {
 
       if (total == 0 || total < overhead) {
           printf("# Timing resulted in %f cycles with %f overhead\n", total, overhead);
-      } else if (verbose) {
+      } else if (verbose && 0) {
           printf("# Timing resulted in %f cycles of which %f are overhead\n", total, overhead);
       }
 
