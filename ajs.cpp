@@ -76,6 +76,7 @@ class ajs {
     static JitRuntime runtime;
     static X86Assembler assembler;
     static FileLogger logger;
+    static int verbose;
 
     static Imm getValAsImm(string val) {
       return Imm(getVal(val));
@@ -808,7 +809,7 @@ class ajs {
     // calls the function given by funcPtr and returns the approximate number
     // of cycles taken
     static double callFunc(void* funcPtr, uint64_t target,
-        const int verbose, const double overhead, uint64_t arg1,
+        const double overhead, uint64_t arg1,
         uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
       double total;
@@ -1135,7 +1136,7 @@ class ajs {
     }
 
     static double tryPerms(list<int>& bestPerm, vector<Line>& func,
-        const int numLabels, const int from, const int to, const int verbose,
+        const int numLabels, const int from, const int to,
         const uint64_t overhead, const int maxPerms, vector<Transform>& transforms, uint64_t arg1,
         uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
@@ -1149,7 +1150,7 @@ class ajs {
 
 
       double bestTime = timeFunc(func, perm, numLabels, 0,
-          verbose, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+          overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
       bestPerm = perm;
       printf("# original sequence: %lf\n", bestTime);
 
@@ -1219,7 +1220,7 @@ class ajs {
               printf("\n# timing sequence:\n");
             // time this permutation
             double newTime = timeFunc(func, perm, numLabels,
-                count, verbose, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+                count, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
             if (newTime > 0 && (bestTime == 0 || bestTime - newTime > 0.25L))
             {
               printf("# better sequence found: %lf", newTime);
@@ -1279,7 +1280,7 @@ class ajs {
     // executes in the least time.
     static double superOptimise(list<int>& bestPerm, vector<Line>& func,
         const int numLabels, int from, int to, const uint64_t
-        limbs, const int verbose, string signature, vector<Transform>&
+        limbs, string signature, vector<Transform>&
         transforms, int nopLine = -1, const int maxPerms = 0)
     {
       double bestTime = 0, overhead = 0;
@@ -1325,7 +1326,7 @@ class ajs {
           printf("# Warming up the processor\n");
       }
       for (int i = 0; i < WARMUP_LENGTH && !exiting; i++)
-        timeFunc(func, idPerm, numLabels, 0, 0, 0, transforms, arg1, arg2,
+        timeFunc(func, idPerm, numLabels, 0, 0, transforms, arg1, arg2,
             arg3, arg4, arg5, arg6);
 
       // set logger if we have verbosity at least 2
@@ -1337,10 +1338,10 @@ class ajs {
       vector<Line> emptyFunc(1, ret);
       list<int> emptyPerm(1, 0);
       overhead = timeFunc(emptyFunc, emptyPerm, 0,
-          bestTime, verbose, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+          bestTime, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
       printf("# overhead = %f\n", overhead);
 
-      bestTime = tryPerms(bestPerm, func, numLabels, from, to, verbose,
+      bestTime = tryPerms(bestPerm, func, numLabels, from, to,
           overhead, maxPerms, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
 
       // optionally add nops and time again
@@ -1361,7 +1362,7 @@ class ajs {
             to++;
 
           double bestNopTime = tryPerms(nopPerm, func,
-              numLabels, from, to, verbose, overhead, maxPerms, transforms, arg1, arg2,
+              numLabels, from, to, overhead, maxPerms, transforms, arg1, arg2,
               arg3, arg4, arg5, arg6);
           if (bestNopTime < bestTime)
           {
@@ -1411,7 +1412,7 @@ class ajs {
     }
 
     static int run(const char* file, int start, int end, const uint64_t limbs,
-        const char* outFile, const int verbose, const int intelSyntax,
+        const char* outFile, const int _verbose, const int intelSyntax,
         const string signature, const int nopLine, const int loop,
         const string prepend, const string append, const int maxPerms,
         const int removeLabels, const int includeLeadIn)
@@ -1433,6 +1434,7 @@ class ajs {
       }
 #endif
 
+      verbose = _verbose;
       // Create the functions we will work with
       vector<Line> func;
       list<int> bestPerm;
@@ -1467,7 +1469,7 @@ class ajs {
 
 
       double bestTime = superOptimise(bestPerm, func,
-          numLabels, start, end, limbs, verbose, signature, transforms, nopLine, maxPerms);
+          numLabels, start, end, limbs, signature, transforms, nopLine, maxPerms);
 
       list<int>::iterator startIt = bestPerm.begin();
       advance(startIt, start);
@@ -1507,6 +1509,7 @@ class ajs {
 };
 
 int ajs::exiting = 0;
+int ajs::verbose = 0;
 // Create JitRuntime and X86 Assembler/Compiler.
 JitRuntime ajs::runtime;
 X86Assembler ajs::assembler(&runtime);
