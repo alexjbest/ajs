@@ -953,17 +953,31 @@ class ajs {
 
     // makes a callable function using assembler then times the generated function with callFunc.
     static double timeFunc(vector<Line>& func, list<int>& perm,
-        int numLabels, uint64_t target, const int verbose, double overhead, vector<Transform>& transforms,
+        int numLabels, uint64_t target, double overhead, vector<Transform>& transforms,
         uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4,
         uint64_t arg5, uint64_t arg6)
     {
         assembler.reset();
         addFunc(func, perm, numLabels, transforms);
         void* funcPtr = assembler.make();
-        double times = callFunc(funcPtr, target, verbose, overhead,
+        double times = callFunc(funcPtr, target, overhead,
                 arg1, arg2, arg3, arg4, arg5, arg6);
         ajs::runtime.release(funcPtr);
         return times;
+    }
+
+    static void set_random(mp_limb_t *RP, gmp_randstate_t &rng, size_t limbs)
+    {
+        mpz_t r;
+        size_t written;
+        mpz_init(r);
+
+        mpz_urandomb (r, rng, limbs * sizeof(mp_limb_t) * 8);
+        mpz_export (RP, &written, -1, sizeof(mp_limb_t), 0, 0, r);
+        assert(written <= limbs);
+        for ( ; written < limbs; written++)
+            RP[written] = 0;
+        mpz_clear(r);
     }
 
     // sets arg1-6 based on signature using: mpn1-3 (of length limbs),
@@ -1284,6 +1298,15 @@ class ajs {
       mpn3 = mpn2 + size2 / sizeof(uint64_t);
       // rest is a double size mpn, e.g. for output of mpn_mul
       mpn4 = mpn3 + size3 / sizeof(uint64_t);
+
+      gmp_randstate_t rng;
+      gmp_randinit_default (rng);
+      gmp_randseed_ui (rng, 42); /* 42 is a random number */
+      set_random(mpn2, rng, limbs);
+      set_random(mpn3, rng, limbs);
+      set_random(mpn4, rng, limbs);
+      gmp_randclear(rng);
+
       mp_size_t k = 1;
       if (signature.substr(0, 6) == "mod_1_")
         k = signature.at(6) - '0';
