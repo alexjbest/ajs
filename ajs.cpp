@@ -77,6 +77,7 @@ class ajs {
     static X86Assembler assembler;
     static FileLogger logger;
     static int verbose;
+    static FILE *permfile;
 
     static Imm getValAsImm(string val) {
       return Imm(getVal(val));
@@ -1144,6 +1145,27 @@ class ajs {
       }
     }
 
+    static void write_permfile(list<int>& perm)
+    {
+        bool first = true;
+        for (list<int>::const_iterator i = perm.begin(); i != perm.end(); i++) {
+            fprintf(permfile, "%s%d", first ? "" : " ", *i);
+            first = false;
+        }
+        fprintf(permfile, "\n");
+    }
+
+    /* Truncate file of optimal permutations to zero size */
+    static void reset_permfile(){
+        fflush(permfile);
+        rewind(permfile);
+        if (ftruncate(fileno(permfile), 0) == -1) {
+            perror("ftruncate() failed:");
+            exit(EXIT_FAILURE);
+        }
+
+    }
+
     static double tryPerms(list<int>& bestPerm, vector<Line>& func,
         const int numLabels, const int from, const int to,
         const uint64_t overhead, const int maxPerms, vector<Transform>& transforms, uint64_t arg1,
@@ -1230,6 +1252,11 @@ class ajs {
             // time this permutation
             double newTime = timeFunc(func, perm, numLabels,
                 count, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+            if (newTime > 0 && newTime == bestTime)
+            {
+                if (permfile != NULL)
+                    write_permfile(perm);
+            }
             if (newTime > 0 && (bestTime == 0 || bestTime - newTime > 0.25L))
             {
               printf("# better sequence found: %lf", newTime);
@@ -1242,6 +1269,11 @@ class ajs {
               for (list<int>::const_iterator ci = perm.begin(); ci != perm.end(); ++ci)
                 printf("%d, ", *ci + 1);
               printf("\n");
+
+              if (permfile != NULL) {
+                  reset_permfile();
+                  write_permfile(perm);
+              }
             }
           }
 
@@ -1424,7 +1456,8 @@ class ajs {
         const char* outFile, const int _verbose, const int intelSyntax,
         const string signature, const int nopLine, const int loop,
         const string prepend, const string append, const int maxPerms,
-        const int removeLabels, const int includeLeadIn)
+        const int removeLabels, const int includeLeadIn, const char *permfilename,
+        const char *funcname)
     {
       int numLabels = 0;
 
@@ -1476,6 +1509,15 @@ class ajs {
         exit(EXIT_FAILURE);
       }
 
+      if (permfilename != NULL) {
+          permfile = fopen(permfilename, "w");
+          if (permfile == NULL) {
+              perror("Error opening permutations file");
+              exit(EXIT_FAILURE);
+          }
+      } else {
+          permfile = NULL;
+      }
 
       double bestTime = superOptimise(bestPerm, func,
           numLabels, start, end, limbs, signature, transforms, nopLine, maxPerms);
@@ -1502,6 +1544,16 @@ class ajs {
             perror("Error opening output file: ");
             exit(1);
         }
+
+        if (funcname != NULL) {
+            fprintf(of, "\t.text\n"
+                        "\t.align  16\n"
+                        "\t.globl  %s\n"
+                        "\t.type   %s,@function\n"
+                        "%s:\n",
+                        funcname, funcname, funcname);
+        }
+
         logger.setStream(of);
         logger.logFormat(Logger::kStyleComment,
             "# This file was produced by ajs, the MPIR assembly superoptimiser\n");
@@ -1510,6 +1562,10 @@ class ajs {
         logger.logFormat(Logger::kStyleComment, "%s\n", prepend.c_str());
         addFunc(func, bestPerm, numLabels, transforms);
         logger.logFormat(Logger::kStyleComment, "%s\n", append.c_str());
+
+        if (funcname != NULL) {
+            fprintf(of, "\t.size   %s,.-%s\n", funcname, funcname);
+        }
         fclose(of);
       }
 
@@ -1523,6 +1579,7 @@ int ajs::verbose = 0;
 JitRuntime ajs::runtime;
 X86Assembler ajs::assembler(&runtime);
 FileLogger ajs::logger(stdout);
+FILE *ajs::permfile = NULL;
 
 void sig_handler(int signo)
 {
@@ -1564,9 +1621,11 @@ void display_usage()
 "                          If no signature is specified add_n is used          \n"
 "  -v/--verbose            Set verbosity level (use -vv...v for higher levels) \n"
 "  -o/--out <file>         Write the final output to <file>                    \n"
+"  -w/--writeperm <file>   Write all optimal permutations to <file>            \n"
 "  -R/--remove-labels      Remove unused labels before optimising              \n"
-"  -a/--append <string>    When outputing to file append <string> to the end   \n"
-"  -p/--prepend <string>   When outputing to file prepend <string> at the start\n"
+"  -a/--append <string>    When outputting to file append <string> to the end   \n"
+"  -p/--prepend <string>   When outputting to file prepend <string> at the start\n"
+"  -f/--funcname <string>  Use <string> as name of output function             \n"
 "                                                                              \n"
 "(abbreviations can be used e.g. --sig)                                        \n"
 "                                                                              \n"
@@ -1595,6 +1654,8 @@ int main(int argc, char* argv[])
       includeLeadIn = 0;
   char *outFile = NULL;
   char *inFile = NULL;
+  const char *permfilename = NULL;
+  const char *funcname = NULL;
   string signature = "add_n", prepend = "", append = "";
   cpu_set_t cpuset;
 
@@ -1620,10 +1681,12 @@ int main(int argc, char* argv[])
     {"remove-labels", no_argument,       0, 'R'},
     {"signature",     required_argument, 0, 's'},
     {"verbose",       optional_argument, 0, 'v'},
+    {"outperm",       required_argument, 0, 'w'},
+    {"funcname",      required_argument, 0, 'f'},
     {0,               0,                 0, 0  }
   };
 
-  while ((c = getopt_long(argc, argv, "a:c:hiIl:L:m:n:o:p:r:Rs:v::",
+  while ((c = getopt_long(argc, argv, "a:c:hiIl:L:m:n:o:p:r:Rs:v::w:f:",
         long_options, &option_index)) != -1) {
 
     switch (c) {
@@ -1723,6 +1786,22 @@ int main(int argc, char* argv[])
       case 'p':
         prepend = string(optarg);
         break;
+
+      case 'f':
+          if (funcname != NULL) {
+              fprintf(stderr, "Error, -f/--funcname given twice\n");
+              exit(EXIT_FAILURE);
+          }
+          funcname = optarg;
+          break;
+
+      case 'w':
+          permfilename = optarg;
+          printf("# Writing all optimal permutations to %s\n", permfilename);
+          break;
+
+      default:
+          abort();
     }
   }
 
@@ -1742,7 +1821,8 @@ int main(int argc, char* argv[])
 
   init_timing();
   int rc = ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax,
-      signature, nopLine, loop, prepend, append, maxPerms, removeLabels, includeLeadIn);
+      signature, nopLine, loop, prepend, append, maxPerms, removeLabels, includeLeadIn,
+      permfilename, funcname);
   clear_timing();
   return rc;
 }
