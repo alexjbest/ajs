@@ -452,7 +452,7 @@ class ajs {
 
         if (adjustment != 0)
         {
-          transforms.insert(transforms.end(), Transform(index1, index2, Transform::changeDisp, adjustment));
+          transforms.push_back(Transform(index1, index2, Transform::changeDisp, adjustment));
           return 1;
         }
       }
@@ -739,7 +739,7 @@ class ajs {
               // if we have shr/shl with only a single argument add the argument 1 for asmjit
               if (args.size() == 1 && (id == X86Util::getInstIdByName("shr") ||
                     id == X86Util::getInstIdByName("shl")))
-                args.insert(args.end(), intelSyntax ? "1" : "$1");
+                args.push_back(intelSyntax ? "1" : "$1");
 
               for (size_t i = 0; i < args.size(); i++)
                 newLine.setOp(i, getOpFromStr(args[i], labels, useCounts, size, intelSyntax));
@@ -762,14 +762,14 @@ class ajs {
                 depGroups[group] = vector<int>();
               for (vector<int>::iterator dep = depGroups[group].begin(); dep != depGroups[group].end(); ++dep)
                 newLine.addDependency(*dep);
-              depGroups[group].insert(depGroups[group].end(), func.size());
+              depGroups[group].push_back(func.size());
             }
           }
           if (!newLine.isValid()) {
               cout << "Error parsing: " << str << endl;
               assert(newLine.isValid());
           }
-          func.insert(func.end(), newLine);
+          func.push_back(newLine);
           if (verbose >= 2 && newLine.isInstruction()) {
               cout << "# Parsed: " << str << endl;
               assembler.emit(newLine.getInstruction(), newLine.getOp(0), newLine.getOp(1),
@@ -1154,7 +1154,7 @@ class ajs {
       list<int> perm;
 
       for (size_t i = 0; i < func.size(); i++)
-        perm.insert(perm.end(), i);
+        perm.push_back(i);
 
 
       double bestTime = timeFunc(func, perm, numLabels, 0,
@@ -1327,7 +1327,7 @@ class ajs {
       list<int> idPerm;
 
       for (size_t i = 0; i < func.size(); i++)
-        idPerm.insert(idPerm.end(), i);
+        idPerm.push_back(i);
 
       // 'warm up' the processor?
       if (WARMUP_LENGTH > 0) {
