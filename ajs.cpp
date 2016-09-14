@@ -1081,7 +1081,8 @@ class ajs {
       else if (signature.substr(0, 6) == "mod_1_")
       {
         mp_size_t j, k = signature.at(6) - '0';
-        mp_limb_t dummy, i, c, ds, d = 5806679768680879695ULL;
+        mp_limb_t dummy __attribute__((__unused__));
+        mp_limb_t i, c, ds, d = 5806679768680879695ULL;
 
         count_leading_zeros(c, d);
         ds = d << c;
@@ -1602,7 +1603,6 @@ int main(int argc, char* argv[])
 
   // deal with command line options
 
-  int this_option_optind = optind ? optind : 1;
   int option_index = 0;
   static struct option long_options[] = {
     {"append",        required_argument, 0, 'a'},
