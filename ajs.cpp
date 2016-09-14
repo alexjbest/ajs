@@ -1545,26 +1545,29 @@ class ajs {
             exit(1);
         }
 
-        if (funcname != NULL) {
-            fprintf(of, "\t.text\n"
-                        "\t.align  16\n"
-                        "\t.globl  %s\n"
-                        "\t.type   %s,@function\n"
-                        "%s:\n",
-                        funcname, funcname, funcname);
-        }
-
         logger.setStream(of);
         logger.logFormat(Logger::kStyleComment,
             "# This file was produced by ajs, the MPIR assembly superoptimiser\n");
         logger.logFormat(Logger::kStyleComment,
             "# %lf cycles/%lu limbs\n", bestTime, limbs);
         logger.logFormat(Logger::kStyleComment, "%s\n", prepend.c_str());
+
+        if (funcname != NULL) {
+            logger.logFormat(Logger::kStyleDirective, "\t.text\n");
+            logger.logFormat(Logger::kStyleDirective, "\t.align 16\n");
+            logger.logFormat(Logger::kStyleDirective, "\t.globl  %s\n",
+                    funcname);
+            logger.logFormat(Logger::kStyleDirective, "\t.type   %s,@function\n",
+                    funcname);
+            logger.logFormat(Logger::kStyleLabel, "%s:\n", funcname);
+        }
+
         addFunc(func, bestPerm, numLabels, transforms);
         logger.logFormat(Logger::kStyleComment, "%s\n", append.c_str());
 
         if (funcname != NULL) {
-            fprintf(of, "\t.size   %s,.-%s\n", funcname, funcname);
+            logger.logFormat(Logger::kStyleDirective, "\t.size   %s,.-%s\n",
+                    funcname, funcname);
         }
         fclose(of);
       }
