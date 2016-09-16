@@ -957,8 +957,12 @@ class ajs {
         }
 
         assembler.setInstOptions(kInstOptionShortForm);
-        assembler.emit(curLine.getInstruction(), curLine.getOp(0), curLine.getOp(1),
-            curLine.getOp(2));
+        asmjit::Error error = assembler.emit(curLine.getInstruction(), curLine.getOp(0),
+                curLine.getOp(1), curLine.getOp(2));
+        if (error != 0) {
+            cout << "asmjit Error: " << error << ", input line was: " << curLine.getOrigLine() << endl;
+            abort();
+        }
       }
       if (0 && numLabels > 0)
       {
@@ -977,6 +981,12 @@ class ajs {
         assembler.reset();
         addFunc(func, perm, numLabels, transforms);
         void* funcPtr = assembler.make();
+        asmjit::Error error = assembler.getLastError();
+        if (error != 0) {
+            cout << "asmjit error: " << error << endl;
+            abort();
+        }
+        assert(funcPtr != NULL);
         if (funcPtr != last_funcPtr) {
             printf("# funcPtr = %p\n", funcPtr);
             last_funcPtr = funcPtr;
