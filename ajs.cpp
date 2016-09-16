@@ -951,6 +951,11 @@ class ajs {
             curLine.setOp(i, labels[curLine.getOp(i).getId()]);
           }
         }
+
+        if (verbose && assembler.hasLogger()) {
+            assembler.getLogger()->logFormat(Logger::kStyleComment,"# %s\n", curLine.getOrigLine());
+        }
+
         assembler.emit(curLine.getInstruction(), curLine.getOp(0), curLine.getOp(1),
             curLine.getOp(2));
       }
