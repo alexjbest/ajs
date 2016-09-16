@@ -956,6 +956,7 @@ class ajs {
             assembler.getLogger()->logFormat(Logger::kStyleComment,"# %s\n", curLine.getOrigLine());
         }
 
+        assembler.setInstOptions(kInstOptionShortForm);
         assembler.emit(curLine.getInstruction(), curLine.getOp(0), curLine.getOp(1),
             curLine.getOp(2));
       }
