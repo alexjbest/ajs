@@ -701,9 +701,9 @@ class ajs {
                   id = X86Util::getInstIdByName(parsed[0].substr(0, parsed[0].size() - 1).c_str());
               }
             }
+            newLine.setInstruction(id, str.c_str());
             parsed.erase(parsed.begin());
 
-            newLine.setInstruction(id);
             while (parsed.size() >= 2)
             {
               if (!parsed[1].size())

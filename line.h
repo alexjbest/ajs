@@ -16,6 +16,7 @@ class Line
     uint32_t label;
     uint32_t align;
     uint8_t byte;
+    char orig_line[128];
     std::vector<int> dependencies;
     std::vector<asmjit::X86Reg> regsIn;
     std::vector<asmjit::X86Reg> regsOut;
@@ -24,6 +25,7 @@ class Line
     Line(uint32_t inst = asmjit::kInstIdNone):instruction(inst), ops({asmjit::noOperand, asmjit::noOperand, asmjit::noOperand}), label(-1), align(0), byte(-1), dependencies(std::vector<int>()), regsIn(std::vector<asmjit::X86Reg>()), regsOut(std::vector<asmjit::X86Reg>()){};
 
     uint32_t getInstruction() const;
+    const char *getOrigLine() const;
     uint32_t getLabel() const;
     uint32_t getByte() const;
     uint32_t getAlign() const;
@@ -39,7 +41,7 @@ class Line
     int isByte() const;
     bool isValid() const; // one of isInstruction, isLabel, isAlign, or isByte must be true
 
-    void setInstruction(uint32_t inst);
+    void setInstruction(uint32_t inst, const char *_orig_line);
     void setLabel(uint32_t lab);
     void setAlign(uint8_t ali);
     void setByte(uint8_t byt);

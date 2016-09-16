@@ -6,6 +6,11 @@ uint32_t Line::getInstruction() const {
   return instruction;
 }
 
+const char *Line::getOrigLine() const {
+    assert(isInstruction());
+    return orig_line;
+}
+
 uint32_t Line::getLabel() const {
   assert(isLabel());
   return label;
@@ -63,11 +68,13 @@ bool Line::isValid() const {
   return isInstruction() || isLabel() || isAlign() || isByte();
 }
 
-void Line::setInstruction(uint32_t inst) {
+void Line::setInstruction(uint32_t inst, const char *_orig_line) {
   instruction = inst;
   label = -1;
   align = 0;
   byte = -1;
+  strncpy(orig_line, _orig_line, sizeof(orig_line));
+  orig_line[sizeof(orig_line) - 1] = '\0';
 }
 
 void Line::setLabel(uint32_t lab) {
@@ -117,7 +124,7 @@ void Line::addDependency(int dep) {
 std::ostream& operator << (std::ostream& outs, const Line& l)
 {
   if (l.isInstruction())
-    outs << "inst: " << l.instruction;
+    outs << "inst: " << l.instruction << " " << l.orig_line;
   if (l.isAlign())
     outs << "alig: " << l.align;
   if (l.isLabel())
