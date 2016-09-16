@@ -758,6 +758,10 @@ class ajs {
 
             for (vector<string>::const_iterator ci = deps.begin(); ci != deps.end(); ++ci)
             {
+              if(ci->compare("notshortform") == 0) {
+                  newLine.addOption(Line::OptNotShortForm);
+                  continue;
+              }
               int group = atoi(ci->c_str());
               if (depGroups.count(group) == 0)
                 depGroups[group] = vector<int>();
@@ -956,7 +960,9 @@ class ajs {
             assembler.getLogger()->logFormat(Logger::kStyleComment,"# %s\n", curLine.getOrigLine());
         }
 
-        assembler.setInstOptions(kInstOptionShortForm);
+        if (!curLine.hasOption(Line::OptNotShortForm)) {
+            assembler.setInstOptions(kInstOptionShortForm);
+        }
         asmjit::Error error = assembler.emit(curLine.getInstruction(), curLine.getOp(0),
                 curLine.getOp(1), curLine.getOp(2));
         if (error != 0) {
