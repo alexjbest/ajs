@@ -50,7 +50,7 @@ typedef int (*FuncType)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
 
 static void repeat_func_call(FuncType callableFunc, uint64_t arg1,
 		uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
-#if 0
+#if 1
     /* Optionally don't inline for easier break-point setting */
     __attribute__((noinline));
 #else
