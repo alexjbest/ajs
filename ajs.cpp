@@ -973,9 +973,14 @@ class ajs {
         uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4,
         uint64_t arg5, uint64_t arg6)
     {
+        static void *last_funcPtr = NULL;
         assembler.reset();
         addFunc(func, perm, numLabels, transforms);
         void* funcPtr = assembler.make();
+        if (funcPtr != last_funcPtr) {
+            printf("# funcPtr = %p\n", funcPtr);
+            last_funcPtr = funcPtr;
+        }
         double times = callFunc(funcPtr, target, overhead,
                 arg1, arg2, arg3, arg4, arg5, arg6);
         ajs::runtime.release(funcPtr);
