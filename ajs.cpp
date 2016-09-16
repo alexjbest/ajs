@@ -1167,14 +1167,14 @@ class ajs {
     }
 
     /* Truncate file of optimal permutations to zero size */
-    static void reset_permfile(){
+    static void reset_permfile(const double timing){
         fflush(permfile);
         rewind(permfile);
         if (ftruncate(fileno(permfile), 0) == -1) {
             perror("ftruncate() failed:");
             exit(EXIT_FAILURE);
         }
-
+        fprintf(permfile, "# Timing: %f\n", timing);
     }
 
     static double tryPerms(list<int>& bestPerm, vector<Line>& func,
@@ -1195,6 +1195,8 @@ class ajs {
           overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
       bestPerm = perm;
       printf("# original sequence: %lf\n", bestTime);
+      if (permfile != NULL)
+          reset_permfile(bestTime);
 
       list<int>::iterator start = perm.begin();
       advance(start, from);
@@ -1282,7 +1284,7 @@ class ajs {
               printf("\n");
 
               if (permfile != NULL) {
-                  reset_permfile();
+                  reset_permfile(newTime);
                   write_permfile(perm);
               }
             }
