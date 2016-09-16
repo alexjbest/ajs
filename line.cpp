@@ -11,6 +11,12 @@ const char *Line::getOrigLine() const {
     return orig_line;
 }
 
+bool Line::hasOption(uint32_t option) const {
+    assert(isInstruction());
+    assert(option < OptNrOptions);
+    return (options & (1U << option) != 0);
+}
+
 uint32_t Line::getLabel() const {
   assert(isLabel());
   return label;
@@ -75,6 +81,12 @@ void Line::setInstruction(uint32_t inst, const char *_orig_line) {
   byte = -1;
   strncpy(orig_line, _orig_line, sizeof(orig_line));
   orig_line[sizeof(orig_line) - 1] = '\0';
+}
+
+void Line::addOption(uint32_t option) {
+    assert(isInstruction());
+    assert(option < OptNrOptions);
+    options |= 1U << option;
 }
 
 void Line::setLabel(uint32_t lab) {

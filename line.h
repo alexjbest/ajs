@@ -17,15 +17,33 @@ class Line
     uint32_t align;
     uint8_t byte;
     char orig_line[128];
+    uint32_t options;
     std::vector<int> dependencies;
     std::vector<asmjit::X86Reg> regsIn;
     std::vector<asmjit::X86Reg> regsOut;
 
   public:
-    Line(uint32_t inst = asmjit::kInstIdNone):instruction(inst), ops({asmjit::noOperand, asmjit::noOperand, asmjit::noOperand}), label(-1), align(0), byte(-1), dependencies(std::vector<int>()), regsIn(std::vector<asmjit::X86Reg>()), regsOut(std::vector<asmjit::X86Reg>()){};
+    enum InstOptions {
+        OptNotShortForm,
+        OptNrOptions
+    };
+
+    Line(uint32_t inst = asmjit::kInstIdNone):
+        instruction(inst),
+        ops({asmjit::noOperand, asmjit::noOperand, asmjit::noOperand}),
+        label(-1),
+        align(0),
+        byte(-1),
+        dependencies(std::vector<int>()),
+        regsIn(std::vector<asmjit::X86Reg>()),
+        regsOut(std::vector<asmjit::X86Reg>()),
+        options(0) {
+        memset(orig_line, 0, sizeof(orig_line));
+    };
 
     uint32_t getInstruction() const;
     const char *getOrigLine() const;
+    bool hasOption(uint32_t option) const;
     uint32_t getLabel() const;
     uint32_t getByte() const;
     uint32_t getAlign() const;
@@ -42,6 +60,7 @@ class Line
     bool isValid() const; // one of isInstruction, isLabel, isAlign, or isByte must be true
 
     void setInstruction(uint32_t inst, const char *_orig_line);
+    void addOption(uint32_t option);
     void setLabel(uint32_t lab);
     void setAlign(uint8_t ali);
     void setByte(uint8_t byt);
