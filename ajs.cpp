@@ -912,7 +912,7 @@ class ajs {
     }
 
     // adds the function func with the permutation perm applied to the X86Assembler
-    static void addFunc(vector<Line>& func, list<int>& perm, int numLabels, vector<Transform>& transforms)
+    static void addFunc(vector<Line>& func, list<int>& perm, int numLabels, vector<Transform>* transforms)
     {
       Label labels[numLabels];
       for (int i = 0; i < numLabels; i++)
@@ -920,13 +920,15 @@ class ajs {
       for (list<int>::iterator ci = perm.begin(); ci != perm.end(); ++ci)
       {
         Line curLine = func[*ci];
-        for (vector<Transform>::const_iterator ti = transforms.begin(); ti != transforms.end(); ++ti)
-        {
-          if (*ci == ti->a) // possibly have a transform to make
-          {
-            if ((find(perm.begin(), ci, ti->b) != ci) ^ (ti->b < ti->a)) // have a transform to make
-              ti->apply(curLine);
-          }
+        if (transforms != NULL) {
+            for (vector<Transform>::const_iterator ti = transforms->begin(); ti != transforms->end(); ++ti)
+            {
+                if (*ci == ti->a) // possibly have a transform to make
+                {
+                    if ((find(perm.begin(), ci, ti->b) != ci) ^ (ti->b < ti->a)) // have a transform to make
+                        ti->apply(curLine);
+                }
+            }
         }
         if (curLine.isAlign()) {
           assembler.align(kAlignCode, curLine.getAlign());
@@ -979,7 +981,7 @@ class ajs {
 
     // makes a callable function using assembler then times the generated function with callFunc.
     static double timeFunc(vector<Line>& func, list<int>& perm,
-        int numLabels, unsigned long target, double overhead, vector<Transform>& transforms,
+        int numLabels, unsigned long target, double overhead, vector<Transform>* transforms,
         uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4,
         uint64_t arg5, uint64_t arg6)
     {
@@ -1214,7 +1216,7 @@ class ajs {
 
 
       double bestTime = timeFunc(func, perm, numLabels, 0,
-          overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+          overhead, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
       bestPerm = perm;
       printf("# original sequence: %lf\n", bestTime);
       reset_permfile(bestTime);
@@ -1288,7 +1290,7 @@ class ajs {
               printf("\n# timing sequence:\n");
             // time this permutation
             double newTime = timeFunc(func, perm, numLabels,
-                count, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+                count, overhead, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
             if (newTime > 0 && newTime == bestTime)
                 write_permfile(perm);
             if (newTime > 0 && (bestTime == 0 || bestTime - newTime > 0.25L))
@@ -1399,7 +1401,7 @@ class ajs {
           printf("# Warming up the processor\n");
       }
       for (int i = 0; i < WARMUP_LENGTH && !exiting; i++)
-        timeFunc(func, idPerm, numLabels, 0, 0, transforms, arg1, arg2,
+        timeFunc(func, idPerm, numLabels, 0, 0, &transforms, arg1, arg2,
             arg3, arg4, arg5, arg6);
 
       // set logger if we have verbosity at least 2
@@ -1411,7 +1413,7 @@ class ajs {
       vector<Line> emptyFunc(1, ret);
       list<int> emptyPerm(1, 0);
       overhead = timeFunc(emptyFunc, emptyPerm, 0,
-          bestTime, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+          bestTime, overhead, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
       printf("# overhead = %f\n", overhead);
 
       bestTime = tryPerms(bestPerm, func, numLabels, from, to,
@@ -1564,7 +1566,7 @@ class ajs {
           bestTime);
       assembler.reset();
       assembler.setLogger(&logger);
-      addFunc(func, bestPerm, numLabels, transforms);
+      addFunc(func, bestPerm, numLabels, &transforms);
       printf("\n\n");
 
       // write output using asmjit's logger
@@ -1595,7 +1597,7 @@ class ajs {
             logger.logFormat(Logger::kStyleLabel, "%s:\n", funcname);
         }
 
-        addFunc(func, bestPerm, numLabels, transforms);
+        addFunc(func, bestPerm, numLabels, &transforms);
         logger.logFormat(Logger::kStyleComment, "%s\n", append.c_str());
 
         if (funcname != NULL) {
