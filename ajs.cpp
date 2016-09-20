@@ -78,6 +78,7 @@ class ajs {
     static FileLogger logger;
     static int verbose;
     static FILE *permfile;
+    static referenceResult<uint64_t> *reference;
 
     static Imm getValAsImm(string val) {
       return Imm(getVal(val));
@@ -981,7 +982,8 @@ class ajs {
 
     // makes a callable function using assembler then times the generated function with callFunc.
     static double timeFunc(vector<Line>& func, list<int>& perm,
-        int numLabels, unsigned long target, double overhead, vector<Transform>* transforms,
+        int numLabels, unsigned long target, double overhead, const bool doCheckResult,
+        vector<Transform>* transforms,
         uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4,
         uint64_t arg5, uint64_t arg6)
     {
@@ -999,8 +1001,14 @@ class ajs {
             printf("# funcPtr = %p\n", funcPtr);
             last_funcPtr = funcPtr;
         }
+        if (doCheckResult) {
+            reference->resetToPrevalue();
+        }
         double times = callFunc(funcPtr, target, overhead,
                 arg1, arg2, arg3, arg4, arg5, arg6);
+        if (doCheckResult) {
+            reference->check();
+        }
         ajs::runtime.release(funcPtr);
         return times;
     }
@@ -1027,12 +1035,14 @@ class ajs {
     static void getArgs(uint64_t *mpn1, uint64_t *mpn2, uint64_t *mpn3,
         uint64_t *mpn4, const uint64_t limbs, string signature, uint64_t& arg1,
         uint64_t& arg2, uint64_t& arg3, uint64_t& arg4, uint64_t& arg5,
-        uint64_t& arg6, mp_limb_t* db, mp_limb_t* rem)
+        uint64_t& arg6, mp_limb_t* db, mp_limb_t* rem, uint64_t * &result, size_t &resultLen)
     {
       if (signature == "double")
       {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = limbs;
+        result = NULL;
+        resultLen = 0;
         cout << "# Using signature " << signature << "("
                 << (void *) arg1 << ", " << arg2 << ")" << endl;
       }
@@ -1041,6 +1051,8 @@ class ajs {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = limbs;
         arg3 = (uint64_t) 123124412;
+        result = mpn1;
+        resultLen = limbs;
         cout << "# Using signature " << signature << "("
                 << (void *) arg1 << ", " << arg2 << ", " << arg3 << ")"
                 << endl;
@@ -1050,6 +1062,8 @@ class ajs {
         arg1 = reinterpret_cast<uint64_t>(mpn1);
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = limbs;
+        result = mpn1;
+        resultLen = limbs;
         cout << "# Using signature " << signature << "("
                 << (void *) arg1 << ", " << (void *) arg2 << ", " << arg3
                 << ")" << endl;
@@ -1060,6 +1074,8 @@ class ajs {
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = limbs;
         arg4 = (uint64_t)31;
+        result = mpn1;
+        resultLen = limbs;
         cout << "# Using signature " << signature << "("
                 << (void *) arg1 << ", " << (void *) arg2 << ", " << arg3 << ", "
                 << arg4 << ")" << endl;
@@ -1071,6 +1087,8 @@ class ajs {
         arg3 = reinterpret_cast<uint64_t>(mpn3);
         arg4 = reinterpret_cast<uint64_t>(mpn4);
         arg5 = limbs;
+        result = mpn1;
+        resultLen = limbs;
         cout << "# Using signature " << signature << "("
                 << (void *) arg1 << ", " << (void *) arg2 << ", "
                 << (void *) arg3 << ", " << (void *) arg4 << ", " << arg5
@@ -1083,6 +1101,8 @@ class ajs {
         arg3 = reinterpret_cast<uint64_t>(mpn3);
         arg4 = limbs;
         arg5 = (uint64_t)31;
+        result = mpn1;
+        resultLen = limbs;
         cout << "# Using signature " << signature << "("
                 << (void *) arg1 << ", " << (void *) arg2 << ", "
                 << (void *) arg3 << ", " << arg4 << ", " << arg5
@@ -1094,6 +1114,8 @@ class ajs {
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = limbs;
         arg4 = (uint64_t)14412932479013124615ULL;
+        result = mpn1;
+        resultLen = limbs + 1;
         cout << "# Using signature " << signature << "("
                 << (void *) arg1 << ", " << (void *) arg2 << ", "
                 << arg3 << ", " << arg4 << ")" << endl;
@@ -1104,6 +1126,8 @@ class ajs {
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = limbs;
         arg4 = reinterpret_cast<uint64_t>(mpn3);
+        result = mpn1;
+        resultLen = limbs + 2;
         cout << "# Using signature " << signature << "("
                 << (void *) arg1 << ", " << (void *) arg2 << ", "
                 << arg3 << ", " << (void *) arg4 << ")" << endl;
@@ -1135,6 +1159,8 @@ class ajs {
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = limbs;
         arg4 = reinterpret_cast<uint64_t>(db);
+        result = NULL;
+        resultLen = 0;
         cout << "# Using signature " << signature << "("
                 << (void *) arg1 << ", " << (void *) arg2 << ", "
                 << arg3 << ", " << (void *) arg4 << ")" << endl;
@@ -1146,6 +1172,8 @@ class ajs {
         arg3 = limbs;
         arg4 = reinterpret_cast<uint64_t>(mpn2);
         arg5 = limbs;
+        result = mpn4;
+        resultLen = 2*limbs;
         cout << "# Using signature " << signature << "("
                 << (void *) arg1 << ", " << (void *) arg2 << ", "
                 << arg3 << ", " << (void *) arg4 << ", " << arg5 << ")"
@@ -1156,6 +1184,8 @@ class ajs {
         arg1 = reinterpret_cast<uint64_t>(mpn4);
         arg2 = reinterpret_cast<uint64_t>(mpn1);
         arg3 = limbs;
+        result = mpn4;
+        resultLen = 2*limbs;
         cout << "# Using signature " << signature << "("
                 << (void *) arg1 << ", " << (void *) arg2 << ", "
                 << arg3 << ")" << endl;
@@ -1168,6 +1198,8 @@ class ajs {
         arg2 = reinterpret_cast<uint64_t>(mpn2);
         arg3 = reinterpret_cast<uint64_t>(mpn3);
         arg4 = limbs;
+        result = mpn1;
+        resultLen = limbs;
         cout << "# Using signature " << signature << "("
                 << (void *) arg1 << ", " << (void *) arg2 << ", "
                 << (void *) arg3 << ", " << arg4 << ")" << endl;
@@ -1216,7 +1248,7 @@ class ajs {
 
 
       double bestTime = timeFunc(func, perm, numLabels, 0,
-          overhead, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+          overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
       bestPerm = perm;
       printf("# original sequence: %lf\n", bestTime);
       reset_permfile(bestTime);
@@ -1290,7 +1322,7 @@ class ajs {
               printf("\n# timing sequence:\n");
             // time this permutation
             double newTime = timeFunc(func, perm, numLabels,
-                count, overhead, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+                count, overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
             if (newTime > 0 && newTime == bestTime)
                 write_permfile(perm);
             if (newTime > 0 && (bestTime == 0 || bestTime - newTime > 0.25L))
@@ -1359,8 +1391,9 @@ class ajs {
         const unsigned long maxPerms, int nopLine = -1)
     {
       double bestTime = 0, overhead = 0;
-      uint64_t *mpn1, *mpn2, *mpn3, *mpn4;
+      uint64_t *mpn1, *mpn2, *mpn3, *mpn4, *result;
       uint64_t arg1 = 0, arg2 = 0, arg3 = 0, arg4 = 0, arg5 = 0, arg6 = 0;
+      size_t resultLen;
 
       // set up arguments for use by function
       const size_t size1 = round_up((limbs + 1) * sizeof(uint64_t), 16),
@@ -1370,6 +1403,7 @@ class ajs {
               size_total = size1 + size2 + size3 + size4;
 
       mpn1 = (uint64_t*)aligned_alloc(4096, size_total);
+      memset(mpn1, 0, size_total);
       mpn2 = mpn1 + size1 / sizeof(uint64_t);
       mpn3 = mpn2 + size2 / sizeof(uint64_t);
       // rest is a double size mpn, e.g. for output of mpn_mul
@@ -1378,9 +1412,10 @@ class ajs {
       gmp_randstate_t rng;
       gmp_randinit_default (rng);
       gmp_randseed_ui (rng, 42); /* 42 is a random number */
+      set_random(mpn1, rng, limbs + 1);
       set_random(mpn2, rng, limbs);
       set_random(mpn3, rng, limbs);
-      set_random(mpn4, rng, limbs);
+      set_random(mpn4, rng, 2*limbs);
       gmp_randclear(rng);
 
       mp_size_t k = 1;
@@ -1389,19 +1424,28 @@ class ajs {
       mp_limb_t db[k + 1], rem[k + 1];
 
       getArgs(mpn1, mpn2, mpn3, mpn4, limbs, signature, arg1, arg2, arg3, arg4,
-          arg5, arg6, db, rem);
+          arg5, arg6, db, rem, result, resultLen);
 
       list<int> idPerm;
 
       for (size_t i = 0; i < func.size(); i++)
         idPerm.push_back(i);
 
+      /* Compute a reference result? */
+      reference = new referenceResult<uint64_t>(result, resultLen);
+      reference->setPrevalue();
+      if (resultLen > 0) {
+          timeFunc(func, idPerm, numLabels, 0, 0, false, &transforms, arg1, arg2,
+                      arg3, arg4, arg5, arg6);
+          reference->setCorrect();
+      }
+
       // 'warm up' the processor?
       if (WARMUP_LENGTH > 0) {
           printf("# Warming up the processor\n");
       }
       for (int i = 0; i < WARMUP_LENGTH && !exiting; i++)
-        timeFunc(func, idPerm, numLabels, 0, 0, &transforms, arg1, arg2,
+        timeFunc(func, idPerm, numLabels, 0, 0, true, &transforms, arg1, arg2,
             arg3, arg4, arg5, arg6);
 
       // set logger if we have verbosity at least 2
@@ -1452,6 +1496,7 @@ class ajs {
       }
 
       free(mpn1);
+      delete reference;
 
       return bestTime;
     }
@@ -1613,7 +1658,7 @@ class ajs {
         vector<Line> emptyFunc(1, ret);
         list<int> emptyPerm(1, 0);
         overhead = timeFunc(emptyFunc, emptyPerm, 0, 0, 0,
-                NULL, 0, 0, 0, 0, 0, 0);
+                false, NULL, 0, 0, 0, 0, 0, 0);
         return overhead;
     }
 };
@@ -1625,6 +1670,7 @@ JitRuntime ajs::runtime;
 X86Assembler ajs::assembler(&runtime);
 FileLogger ajs::logger(stdout);
 FILE *ajs::permfile = NULL;
+referenceResult<uint64_t> *ajs::reference = NULL;
 
 void sig_handler(int signo)
 {
