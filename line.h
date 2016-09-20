@@ -34,10 +34,10 @@ class Line
         label(-1),
         align(0),
         byte(-1),
+        options(0),
         dependencies(std::vector<int>()),
         regsIn(std::vector<asmjit::X86Reg>()),
-        regsOut(std::vector<asmjit::X86Reg>()),
-        options(0) {
+        regsOut(std::vector<asmjit::X86Reg>()) {
         memset(orig_line, 0, sizeof(orig_line));
     };
 
