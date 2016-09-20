@@ -546,7 +546,7 @@ class ajs {
     }
 
     // core parsing function, loads lines from either the filename given in
-    // imput or stdin if this is null and converts them to Lines which are
+    // input or stdin if this is null and converts them to Lines which are
     // returned in func
     static int loadFunc(vector<Line>& func, const char* input,
         const int intelSyntax, vector<Transform>& transforms, int removeLabels)
