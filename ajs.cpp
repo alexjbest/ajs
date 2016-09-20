@@ -1409,11 +1409,7 @@ class ajs {
         assembler.setLogger(&logger);
 
       printf("# Getting timing for empty function\n");
-      Line ret(X86Util::getInstIdByName("ret"));
-      vector<Line> emptyFunc(1, ret);
-      list<int> emptyPerm(1, 0);
-      overhead = timeFunc(emptyFunc, emptyPerm, 0,
-          bestTime, overhead, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+      overhead = timeEmpty();
       printf("# overhead = %f\n", overhead);
 
       bestTime = tryPerms(bestPerm, func, numLabels, from, to,
@@ -1608,6 +1604,17 @@ class ajs {
       }
 
       return 0;
+    }
+
+    static double timeEmpty()
+    {
+        double overhead;
+        Line ret(X86Util::getInstIdByName("ret"));
+        vector<Line> emptyFunc(1, ret);
+        list<int> emptyPerm(1, 0);
+        overhead = timeFunc(emptyFunc, emptyPerm, 0, 0, 0,
+                NULL, 0, 0, 0, 0, 0, 0);
+        return overhead;
     }
 };
 
