@@ -1520,6 +1520,7 @@ class ajs {
       if (numLabels == -1)
         exit(EXIT_FAILURE);
 
+      assert(start >= 0 && end >= 0);
       if (start != 0)
         start--;
 
@@ -1535,7 +1536,7 @@ class ajs {
           start = 0;
       }
 
-      if ((end + 1 > func.size()) || (start > end))
+      if (((size_t) end + 1 > func.size()) || (start > end))
       {
         printf("error: invalid range (function is %lu lines long)\n", func.size());
         exit(EXIT_FAILURE);
