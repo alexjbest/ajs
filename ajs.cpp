@@ -1242,13 +1242,17 @@ class ajs {
       vector< list<int> > lines(to + 1 - from);
       vector< int > remaining(to + 2 - from);
       list<int> perm;
+      list<int> id_perm;
 
-      for (size_t i = 0; i < func.size(); i++)
+      for (size_t i = 0; i < func.size(); i++) {
         perm.push_back(i);
+        id_perm.push_back(i);
+      }
 
 
       double bestTime = timeFunc(func, perm, numLabels, 0,
           overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+      const double origTime = bestTime;
       bestPerm = perm;
       printf("# original sequence: %lf\n", bestTime);
       reset_permfile(bestTime);
@@ -1340,6 +1344,28 @@ class ajs {
 
               reset_permfile(newTime);
               write_permfile(perm);
+
+              if (verbose) {
+                  printf("# Timing empty function again\n");
+              }
+              const uint64_t overhead2 = timeEmpty();
+              if (overhead != overhead2) {
+                  printf("# Warning: function call overhead changed from %lu to %lu\n",
+                          overhead, overhead2);
+              } else if (verbose) {
+                  printf("# Timing for empty function is still %lu\n", overhead);
+              }
+              if (verbose) {
+                  printf("# Timing original function again\n");
+              }
+              const double origTime2 = timeFunc(func, id_perm, numLabels, 0,
+                  overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+              if (origTime != origTime2) {
+                  printf("# Warning: timing for original function changed from %.0f to %.0f\n",
+                          origTime, origTime2);
+              } else if (verbose) {
+                  printf("# Timing for original function is still %.0f\n", origTime);
+              }
             }
           }
 
