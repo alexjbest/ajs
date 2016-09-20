@@ -5,6 +5,15 @@
 #include <algorithm>
 #include <iostream>
 
+#define FPRINTF(__f__, ...) \
+    do{ \
+        if (fprintf(__f__, __VA_ARGS__) < 0) { \
+            perror("fprintf() failed:"); \
+            exit(EXIT_FAILURE); \
+        } \
+    } while (0)
+
+
 std::vector<std::string> split(const std::string &s, char delim, std::vector<std::string> &elems);
 
 std::vector<std::string> split(const std::string &s, char delim);

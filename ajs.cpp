@@ -1174,23 +1174,30 @@ class ajs {
 
     static void write_permfile(list<int>& perm)
     {
+        if (permfile == NULL)
+            return;
         bool first = true;
         for (list<int>::const_iterator i = perm.begin(); i != perm.end(); i++) {
-            fprintf(permfile, "%s%d", first ? "" : " ", *i);
+            FPRINTF(permfile, "%s%d", first ? "" : " ", *i);
             first = false;
         }
-        fprintf(permfile, "\n");
+        FPRINTF(permfile, "\n");
     }
 
     /* Truncate file of optimal permutations to zero size */
     static void reset_permfile(const double timing){
-        fflush(permfile);
+        if (permfile == NULL)
+            return;
+        if (fflush(permfile) != 0) {
+            perror("fflush() failed:");
+            exit(EXIT_FAILURE);
+        }
         rewind(permfile);
         if (ftruncate(fileno(permfile), 0) == -1) {
             perror("ftruncate() failed:");
             exit(EXIT_FAILURE);
         }
-        fprintf(permfile, "# Timing: %f\n", timing);
+        FPRINTF(permfile, "# Timing: %f\n", timing);
     }
 
     static double tryPerms(list<int>& bestPerm, vector<Line>& func,
@@ -1211,8 +1218,8 @@ class ajs {
           overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
       bestPerm = perm;
       printf("# original sequence: %lf\n", bestTime);
-      if (permfile != NULL)
-          reset_permfile(bestTime);
+      reset_permfile(bestTime);
+      write_permfile(perm);
 
       list<int>::iterator start = perm.begin();
       advance(start, from);
@@ -1282,10 +1289,7 @@ class ajs {
             double newTime = timeFunc(func, perm, numLabels,
                 count, overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
             if (newTime > 0 && newTime == bestTime)
-            {
-                if (permfile != NULL)
-                    write_permfile(perm);
-            }
+                write_permfile(perm);
             if (newTime > 0 && (bestTime == 0 || bestTime - newTime > 0.25L))
             {
               printf("# better sequence found: %lf", newTime);
@@ -1299,10 +1303,8 @@ class ajs {
                 printf("%d, ", *ci + 1);
               printf("\n");
 
-              if (permfile != NULL) {
-                  reset_permfile(newTime);
-                  write_permfile(perm);
-              }
+              reset_permfile(newTime);
+              write_permfile(perm);
             }
           }
 
