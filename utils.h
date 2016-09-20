@@ -13,6 +13,19 @@
         } \
     } while (0)
 
+/* Functor that tests whether a value is in [start, end[.
+ * Note that the end value is NOT included in the range, similarly
+ * as in Python. */
+template <typename T>
+class is_in_range
+{
+    public:
+        is_in_range (T start, T end) : _start( start ), _end( end ) {}
+        bool operator() (T y) const { return y >= _start && y < _end; }
+    private:
+        T _start, _end;
+};
+
 /* Checks whether data in a "result" memory area of length "len"
  * (in units of elements of type T) matches a previous value. */
 template <typename T>
