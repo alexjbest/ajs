@@ -889,9 +889,9 @@ class ajs {
       static double last_total = 0.;
       static unsigned long in_a_row = 0;
 
-      if (verbose && total == last_total && in_a_row < 1000) {
+      if (verbose >= 2 && total == last_total && in_a_row < 1000) {
           in_a_row++;
-      } else if (verbose) {
+      } else if (verbose >= 2) {
           if (in_a_row > 0) {
               cout << "# Had " << last_total << " cycles " << in_a_row << " times in a row." << endl;
               fflush(stdout);
