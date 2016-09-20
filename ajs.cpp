@@ -821,7 +821,7 @@ class ajs {
 
     // calls the function given by funcPtr and returns the approximate number
     // of cycles taken
-    static double callFunc(void* funcPtr, uint64_t target,
+    static double callFunc(void* funcPtr, unsigned long target,
         const double overhead, uint64_t arg1,
         uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
@@ -979,7 +979,7 @@ class ajs {
 
     // makes a callable function using assembler then times the generated function with callFunc.
     static double timeFunc(vector<Line>& func, list<int>& perm,
-        int numLabels, uint64_t target, double overhead, vector<Transform>& transforms,
+        int numLabels, unsigned long target, double overhead, vector<Transform>& transforms,
         uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4,
         uint64_t arg5, uint64_t arg6)
     {
@@ -1202,10 +1202,9 @@ class ajs {
 
     static double tryPerms(list<int>& bestPerm, vector<Line>& func,
         const int numLabels, const int from, const int to,
-        const uint64_t overhead, const int maxPerms, vector<Transform>& transforms, uint64_t arg1,
+        const uint64_t overhead, const unsigned long maxPerms, vector<Transform>& transforms, uint64_t arg1,
         uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
-      int count = 0, level = 0;
       vector< list<int> > lines(to + 1 - from);
       vector< int > remaining(to + 2 - from);
       list<int> perm;
@@ -1240,6 +1239,8 @@ class ajs {
         i = perm.erase(i);
       }
 
+      unsigned long count = 0;
+      int level = 0;
       remaining[0] = lines[0].size();
 
       list<int>::iterator cur = perm.begin();
@@ -1334,7 +1335,7 @@ class ajs {
         }
       }
 
-      printf("# tried %d sequences\n", count);
+      printf("# tried %lu sequences\n", count);
       return bestTime;
     }
 
@@ -1352,8 +1353,8 @@ class ajs {
     // executes in the least time.
     static double superOptimise(list<int>& bestPerm, vector<Line>& func,
         const int numLabels, int from, int to, const uint64_t
-        limbs, string signature, vector<Transform>&
-        transforms, int nopLine = -1, const int maxPerms = 0)
+        limbs, string signature, vector<Transform>& transforms,
+        const unsigned long maxPerms, int nopLine = -1)
     {
       double bestTime = 0, overhead = 0;
       uint64_t *mpn1, *mpn2, *mpn3, *mpn4;
@@ -1486,7 +1487,7 @@ class ajs {
     static int run(const char* file, int start, int end, const uint64_t limbs,
         const char* outFile, const int _verbose, const int intelSyntax,
         const string signature, const int nopLine, const int loop,
-        const string prepend, const string append, const int maxPerms,
+        const string prepend, const string append, const unsigned long maxPerms,
         const int removeLabels, const int includeLeadIn, const char *permfilename,
         const char *funcname)
     {
@@ -1551,7 +1552,7 @@ class ajs {
       }
 
       double bestTime = superOptimise(bestPerm, func,
-          numLabels, start, end, limbs, signature, transforms, nopLine, maxPerms);
+          numLabels, start, end, limbs, signature, transforms, maxPerms, nopLine);
 
       list<int>::iterator startIt = bestPerm.begin();
       advance(startIt, start);
@@ -1684,8 +1685,9 @@ void display_usage()
 int main(int argc, char* argv[])
 {
   int c, start = 0, end = 0, limbs = 111, verbose = 0, nopLine = -1,
-      intelSyntax = 0, loop = 0, cpunum = -1, maxPerms = 0, removeLabels = 0,
+      intelSyntax = 0, loop = 0, cpunum = -1, removeLabels = 0,
       includeLeadIn = 0;
+  unsigned long maxPerms = 0;
   char *outFile = NULL;
   char *inFile = NULL;
   const char *permfilename = NULL;
@@ -1762,10 +1764,10 @@ int main(int argc, char* argv[])
         break;
 
       case 'm':
-        maxPerms = std::strtol(optarg, NULL, 10);
+        maxPerms = std::strtoul(optarg, NULL, 10);
         if (maxPerms == 0)
           printf("# error: max number of permutations not recognised, not using\n");
-        printf("# trying at most %d permutations\n", maxPerms);
+        printf("# trying at most %lu permutations\n", maxPerms);
         break;
 
       case 'n':
