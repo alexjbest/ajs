@@ -13,6 +13,65 @@
         } \
     } while (0)
 
+/* Checks whether data in a "result" memory area of length "len"
+ * (in units of elements of type T) matches a previous value. */
+template <typename T>
+class referenceResult {
+private:
+    T * const result; /* Points to the memory area that will be checked */
+    const size_t len; /* Number of elements in the "result" area */
+    T *correctValue, *preValue;
+
+public:
+    referenceResult(T *r, size_t l) : result(r), len(l)
+    {
+        if (len > 0) {
+            preValue = (T *) malloc(len * sizeof(T));
+            correctValue = (T *) malloc(len * sizeof(T));
+        }
+    }
+
+    ~referenceResult()
+    {
+        if (len > 0) {
+            free(preValue);
+            free(correctValue);
+        }
+    }
+
+    referenceResult(const referenceResult& that) = delete;
+
+    /* Set the data currently in the "result" area as the correct data */
+    void setPrevalue() {
+        if (len == 0)
+            return;
+        memcpy (preValue, result, len * sizeof(T));
+    }
+
+    /* Set data in the "result" area back to the preValue */
+    void resetToPrevalue() const {
+        if (len == 0)
+            return;
+        memcpy(result, preValue, len * sizeof(T));
+    }
+
+    /* Set the data currently in the "result" area as the correct data */
+    void setCorrect() {
+        if (len == 0)
+            return;
+        memcpy(correctValue, result, len * sizeof(T));
+    }
+
+    /* Check whether the data in the "result" area matches the correct data */
+    bool check() const {
+        if (len == 0 || memcmp(correctValue, result, len * sizeof(T)) == 0) {
+            return true;
+        }
+        fprintf(stderr, "Error, data does not match reference value\n");
+        abort();
+    }
+};
+
 
 std::vector<std::string> split(const std::string &s, char delim, std::vector<std::string> &elems);
 
