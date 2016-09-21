@@ -19,6 +19,8 @@
 #define _str(x) #x
 #endif
 
+#include <stdint.h>
+
 #ifdef USE_INTEL_PCM
     #include <sched.h>
 	#include "cpucounters.h"
