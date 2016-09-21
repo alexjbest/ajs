@@ -57,18 +57,18 @@ static inline void serialize()
 }
 
 __attribute__((__unused__))
-static inline void rdtsc(uint32_t &low, uint32_t &high)
+static inline void rdtsc(uint32_t *low, uint32_t *high)
 {
-  asm volatile("RDTSC\n\t"
-               : "=d" (high), "=a" (low)
+  __asm__ volatile("RDTSC\n\t"
+               : "=d" (*high), "=a" (*low)
               );
 }
 
 __attribute__((__unused__))
-static inline void rdtscp(uint32_t &low, uint32_t &high)
+static inline void rdtscp(uint32_t *low, uint32_t *high)
 {
-  asm volatile("RDTSCP\n\t"
-               : "=d" (high), "=a" (low)
+  __asm__ volatile("RDTSCP\n\t"
+               : "=d" (*high), "=a" (*low)
                :: "%rcx"
               );
 }
@@ -77,7 +77,7 @@ __attribute__((__unused__))
 static inline uint64_t rdtscl()
 {
   uint32_t high, low;
-  rdtsc(low, high);
+  rdtsc(&low, &high);
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
@@ -85,7 +85,7 @@ __attribute__((__unused__))
 static inline uint64_t rdtscpl()
 {
   uint32_t high, low;
-  rdtscp(low, high);
+  rdtscp(&low, &high);
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
@@ -93,7 +93,7 @@ __attribute__((__unused__))
 static inline uint64_t rdtscidl()
 {
   uint32_t high, low;
-  rdtsc(low, high);
+  rdtsc(&low, &high);
   serialize();
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
@@ -103,7 +103,7 @@ static inline uint64_t idrdtscl()
 {
   uint32_t high, low;
   serialize();
-  rdtsc(low, high);
+  rdtsc(&low, &high);
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
@@ -111,7 +111,7 @@ __attribute__((__unused__))
 static inline uint64_t rdtscpidl()
 {
   uint32_t high, low;
-  rdtscp(low, high);
+  rdtscp(&low, &high);
   serialize();
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
@@ -121,7 +121,7 @@ static inline uint64_t idrdtscpl()
 {
   uint32_t high, low;
   serialize();
-  rdtscp(low, high);
+  rdtscp(&low, &high);
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
