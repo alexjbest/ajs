@@ -46,17 +46,17 @@
 	static uint64_t start_time, end_time;
 #endif
 
-	__attribute__((__unused__))
+__attribute__((__unused__, __artificial__, __always_inline__))
 static inline void serialize()
 {
 		unsigned long dummy = 0;
-		asm volatile("CPUID\n\t"
+		__asm__ volatile("CPUID\n\t"
 	                 : "+a" (dummy)
 	                 :: "%rbx", "%rcx", "%rdx"
 	                );
 }
 
-__attribute__((__unused__))
+__attribute__((__unused__, __artificial__, __always_inline__))
 static inline void rdtsc(uint32_t *low, uint32_t *high)
 {
   __asm__ volatile("RDTSC\n\t"
@@ -64,7 +64,7 @@ static inline void rdtsc(uint32_t *low, uint32_t *high)
               );
 }
 
-__attribute__((__unused__))
+__attribute__((__unused__, __artificial__, __always_inline__))
 static inline void rdtscp(uint32_t *low, uint32_t *high)
 {
   __asm__ volatile("RDTSCP\n\t"
@@ -73,7 +73,7 @@ static inline void rdtscp(uint32_t *low, uint32_t *high)
               );
 }
 
-__attribute__((__unused__))
+__attribute__((__unused__, __artificial__, __always_inline__))
 static inline uint64_t rdtscl()
 {
   uint32_t high, low;
@@ -81,7 +81,7 @@ static inline uint64_t rdtscl()
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
-__attribute__((__unused__))
+__attribute__((__unused__, __artificial__, __always_inline__))
 static inline uint64_t rdtscpl()
 {
   uint32_t high, low;
@@ -89,7 +89,7 @@ static inline uint64_t rdtscpl()
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
-__attribute__((__unused__))
+__attribute__((__unused__, __artificial__, __always_inline__))
 static inline uint64_t rdtscidl()
 {
   uint32_t high, low;
@@ -98,7 +98,7 @@ static inline uint64_t rdtscidl()
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
-__attribute__((__unused__))
+__attribute__((__unused__, __artificial__, __always_inline__))
 static inline uint64_t idrdtscl()
 {
   uint32_t high, low;
@@ -107,7 +107,7 @@ static inline uint64_t idrdtscl()
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
-__attribute__((__unused__))
+__attribute__((__unused__, __artificial__, __always_inline__))
 static inline uint64_t rdtscpidl()
 {
   uint32_t high, low;
@@ -116,7 +116,7 @@ static inline uint64_t rdtscpidl()
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
-__attribute__((__unused__))
+__attribute__((__unused__, __artificial__, __always_inline__))
 static inline uint64_t idrdtscpl()
 {
   uint32_t high, low;
@@ -155,7 +155,9 @@ static inline uint64_t idrdtscpl()
 // increment while CPL is 0 (kernel mode), e.g., during interrupts,
 // etc.
 
-unsigned long rdpmc_cycles()
+__attribute__((__unused__, __artificial__, __always_inline__))
+static inline unsigned long
+rdpmc_cycles()
 {
    unsigned a, d;
    const unsigned c = (1<<30) + 1; /* Second Fixed-function counter:
@@ -208,7 +210,7 @@ static void clear_timing()
 #endif
 }
 
-static void start_timing()
+static inline void start_timing()
 {
 #ifdef USE_INTEL_PCM
     const int cpu = sched_getcpu();
@@ -224,7 +226,7 @@ static void start_timing()
 #endif
 }
 
-static void end_timing()
+static inline void end_timing()
 {
 #ifdef USE_INTEL_PCM
     const int cpu = sched_getcpu();
