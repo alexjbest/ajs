@@ -29,9 +29,13 @@
 	static struct libperf_data* pd;
 	static uint64_t start_time, end_time;
 #elif USE_JEVENTS
-	extern "C" {
-#include "rdpmc.h"
-	}
+    #ifdef __cplusplus
+	    extern "C" {
+    #endif
+    #include "rdpmc.h"
+    #ifdef __cplusplus
+	    }
+    #endif
 	struct rdpmc_ctx ctx;
 	uint64_t start_time, end_time;
 #else
