@@ -1277,7 +1277,7 @@ class ajs {
         i = perm.erase(i);
       }
 
-      unsigned long count = 0;
+      unsigned long count = 1;
       int level = 0;
       remaining[0] = lines[0].size();
 
