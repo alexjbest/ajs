@@ -1028,7 +1028,14 @@ class ajs {
                 fflush(stdout);
             }
 #endif
-        } while(ru_nivcsw > 0);
+        /* If doCheckResult is false, we cannot reset the pre-value to
+         * a reproducible state, and thus should not repeat the function
+         * call. If we did so for example in the very first function
+         * call to compute the reference value (which necesarily has
+         * doCheckResult=false), then the reference value would be incorrect.
+         */
+        } while(ru_nivcsw > 0 && doCheckResult);
+
         if (doCheckResult) {
             reference->check();
         }
