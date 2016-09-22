@@ -5,7 +5,7 @@
 #define LOOPSIZE 1
 #define WARMUP_LENGTH 100
 #define REPEATS 1
-#define PREFETCH_CALLS 4
+#define PREFETCH_CALLS 8
 #define TIMING_SERIALIZE rdtscpl
 
 //#define STRATEGY_MIN
