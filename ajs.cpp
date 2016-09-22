@@ -12,6 +12,8 @@
 #include <list>
 #include <assert.h>
 #include <asmjit/asmjit.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <csignal>
 #include <getopt.h>
 #include <sched.h>
@@ -1001,11 +1003,32 @@ class ajs {
             printf("# funcPtr = %p\n", funcPtr);
             last_funcPtr = funcPtr;
         }
-        if (doCheckResult) {
-            reference->resetToPrevalue();
-        }
-        double times = callFunc(funcPtr, target, overhead,
-                arg1, arg2, arg3, arg4, arg5, arg6);
+
+        double times;
+        long ru_nivcsw = 0;
+        do {
+#ifdef SKIP_CONTEXT_SWITCHES
+            struct rusage usage;
+            getrusage(RUSAGE_SELF, &usage);
+            ru_nivcsw = usage.ru_nivcsw;
+#endif
+
+            if (doCheckResult) {
+                reference->resetToPrevalue();
+            }
+            times = callFunc(funcPtr, target, overhead,
+                    arg1, arg2, arg3, arg4, arg5, arg6);
+
+#ifdef SKIP_CONTEXT_SWITCHES
+            getrusage(RUSAGE_SELF, &usage);
+            assert(usage.ru_nivcsw >= ru_nivcsw);
+            ru_nivcsw = usage.ru_nivcsw - ru_nivcsw;
+            if (ru_nivcsw > 0 && verbose > 0) {
+                printf("# Had context switch, re-running timing\n");
+                fflush(stdout);
+            }
+#endif
+        } while(ru_nivcsw > 0);
         if (doCheckResult) {
             reference->check();
         }
