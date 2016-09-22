@@ -193,7 +193,7 @@ static void init_timing()
   printf("# Using jevents library\n");
 #ifdef TIMING_SERIALIZE
   printf("# Using %s to serialize before timing start/before timing end\n",
-          _str(TIMING_SERIALIZE));
+          _xstr(TIMING_SERIALIZE));
 #endif
   if (rdpmc_open(PERF_COUNT_HW_CPU_CYCLES, &ctx) < 0)
 	exit(EXIT_FAILURE);
