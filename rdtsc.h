@@ -191,6 +191,10 @@ static void init_timing()
                                         /* enable HW counter */
 #elif defined(USE_JEVENTS)
   printf("# Using jevents library\n");
+#ifdef TIMING_SERIALIZE
+  printf("# Using %s to serialize before timing start/before timing end\n",
+          _str(TIMING_SERIALIZE));
+#endif
   if (rdpmc_open(PERF_COUNT_HW_CPU_CYCLES, &ctx) < 0)
 	exit(EXIT_FAILURE);
 #else
@@ -219,6 +223,9 @@ static inline void start_timing()
     start_time = libperf_readcounter(pd, LIBPERF_COUNT_HW_CPU_CYCLES);
                                           /* obtain counter value */
 #elif defined(USE_JEVENTS)
+#ifdef TIMING_SERIALIZE
+    TIMING_SERIALIZE();
+#endif
 	start_time = rdpmc_cycles();
 	// start_time = rdpmc_read(&ctx);
 #else
@@ -235,6 +242,9 @@ static inline void end_timing()
     end_time = libperf_readcounter(pd, LIBPERF_COUNT_HW_CPU_CYCLES);
                                           /* obtain counter value */
 #elif defined(USE_JEVENTS)
+#ifdef TIMING_SERIALIZE
+    TIMING_SERIALIZE();
+#endif
     end_time = rdpmc_cycles();
     // end_time = rdpmc_read(&ctx);
 #else
