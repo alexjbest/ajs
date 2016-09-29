@@ -50,7 +50,7 @@ using namespace std;
 typedef int (*FuncType)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
     uint64_t);
 
-static void repeat_func_call(FuncType callableFunc, uint64_t arg1,
+static void repeat_func_call(FuncType callableFunc, unsigned repeats, uint64_t arg1,
 		uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
 #if 0
     /* Optionally don't inline for easier break-point setting */
@@ -59,15 +59,11 @@ static void repeat_func_call(FuncType callableFunc, uint64_t arg1,
     ;
 #endif
 
-static void repeat_func_call(FuncType callableFunc, uint64_t arg1,
+static void repeat_func_call(FuncType callableFunc, unsigned repeats, uint64_t arg1,
 		uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
 {
-#ifdef REPEATS
-	for (unsigned long r = 0; r < REPEATS; r++)
+	for (unsigned long r = 0; r < repeats; r++)
 		callableFunc(arg1, arg2, arg3, arg4, arg5, arg6);
-#else
-    callableFunc(arg1, arg2, arg3, arg4, arg5, arg6);
-#endif
 }
 
 
@@ -838,8 +834,7 @@ class ajs {
 
       /* Call function a few times to fetch code and data into caches,
        * set up branch prediction, etc. */
-      for (int i = 0 ; i < PREFETCH_CALLS ; i++)
-          repeat_func_call(callableFunc, arg1, arg2, arg3, arg4, arg5, arg6);
+      repeat_func_call(callableFunc, PREFETCH_CALLS, arg1, arg2, arg3, arg4, arg5, arg6);
 
       total = -1;
       for (int i = 0; i < TRIALS; i++)
@@ -848,10 +843,10 @@ class ajs {
         for (k = 0; k < LOOPSIZE; k++)
         {
           start_timing();
-          repeat_func_call(callableFunc, arg1, arg2, arg3, arg4, arg5, arg6);
+          repeat_func_call(callableFunc, REPEATS, arg1, arg2, arg3, arg4, arg5, arg6);
           end_timing();
-
           times[i] = get_diff_timing();
+
           /*if (0 && target != 0 && k >= LOOPSIZE >> 1 && curTotal > (target + 20) * (k + 1))
           {
             if (verbose)
