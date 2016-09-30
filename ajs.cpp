@@ -19,6 +19,7 @@
 #include <sched.h>
 #include <unistd.h>
 #include <cmath>
+#include <alloca.h>
 #include "gmp.h"
 #define HAVE_MEMSET 1
 #include "gmp-impl.h"
@@ -833,6 +834,15 @@ class ajs {
       FuncType callableFunc = asmjit_cast<FuncType>(funcPtr);
       int times[TRIALS];
 
+      const bool do_padding = true;
+      const size_t stack_page_offset = (uintptr_t) (&arg1) % 4096;
+      const size_t padding_size = 16 + stack_page_offset;
+      char *padding;
+      if (do_padding) {
+        padding = (char *) alloca(padding_size);
+        memset(padding, 0, padding_size);
+      }
+
       /* Call function a few times to fetch code and data into caches,
        * set up branch prediction, etc. */
       repeat_func_call(callableFunc, PREFETCH_CALLS, arg1, arg2, arg3, arg4, arg5, arg6);
@@ -857,7 +867,14 @@ class ajs {
             break;
           }*/
         }
+      }
 
+      if (do_padding) {
+        for (size_t i = 0; i < padding_size; i++) {
+          if (padding[i] != 0) {
+            abort();
+          }
+        }
       }
 
       qsort(times, TRIALS, sizeof(int), comp);
