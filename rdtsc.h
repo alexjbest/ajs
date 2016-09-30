@@ -38,8 +38,18 @@
     #ifdef __cplusplus
 	    }
     #endif
+
+#define IMMEDIATE_RDPMC 1
 	struct rdpmc_ctx ctx;
-	uint64_t start_time, end_time;
+#ifdef IMMEDIATE_RDPMC
+	static union {
+	    struct {unsigned lo, hi;} pair;
+	    unsigned long l;
+	} start_time;
+	static unsigned long end_time;
+#else
+	static uint64_t start_time, end_time;
+#endif
 #else
 #define START_COUNTER rdtscpl
 #define END_COUNTER rdtscpl
@@ -165,7 +175,17 @@ rdpmc_cycles()
 
    __asm__ volatile("rdpmc" : "=a" (a), "=d" (d) : "c" (c));
 
-   return ((unsigned long)a) | (((unsigned long)d) << 32);
+   return ((unsigned long)a) + (((unsigned long)d) << 32);
+}
+
+__attribute__((__unused__, __artificial__, __always_inline__))
+static inline void
+rdpmc_cycles2(unsigned *lo, unsigned *hi)
+{
+   const unsigned c = (1<<30) + 1; /* Second Fixed-function counter:
+                                      clock cycles in non-HALT */
+
+   __asm__ volatile("rdpmc" : "=a" (*lo), "=d" (*hi) : "c" (c));
 }
 
 static void init_timing()
@@ -224,10 +244,13 @@ static inline void start_timing()
                                           /* obtain counter value */
 #elif defined(USE_JEVENTS)
 #ifdef TIMING_SERIALIZE
-    TIMING_SERIALIZE();
+    serialize();
 #endif
-	start_time = rdpmc_cycles();
-	// start_time = rdpmc_read(&ctx);
+#ifdef IMMEDIATE_RDPMC
+    rdpmc_cycles2(&start_time.pair.lo, &start_time.pair.hi);
+#else
+    start_time = rdpmc_read(&ctx);
+#endif
 #else
     start_time = START_COUNTER();
 #endif
@@ -243,10 +266,13 @@ static inline void end_timing()
                                           /* obtain counter value */
 #elif defined(USE_JEVENTS)
 #ifdef TIMING_SERIALIZE
-    TIMING_SERIALIZE();
+    // rdtscpl();
 #endif
+#ifdef IMMEDIATE_RDPMC
     end_time = rdpmc_cycles();
-    // end_time = rdpmc_read(&ctx);
+#else
+    end_time = rdpmc_read(&ctx);
+#endif
 #else
     end_time = END_COUNTER();
 #endif
@@ -258,6 +284,12 @@ static uint64_t get_diff_timing()
     return getCycles(before_sstate,after_sstate);
 #elif defined(USE_PERF)
     return end_time - start_time;
+#elif defined(USE_JEVENTS)
+#ifdef IMMEDIATE_RDPMC
+    return end_time - start_time.l;
+#else
+    return end_time - start_time;
+#endif
 #else
     return end_time - start_time;
 #endif
