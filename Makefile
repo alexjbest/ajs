@@ -49,8 +49,9 @@ ajs-jev: $(LIB_ASMJIT) $(AJSOBJS) ajs.cpp *.h
 unittests: unittests.cpp $(TESTSOBJS)
 	$(CXX) -o $@ $< -O0 -g -Wall -Wextra $(TESTSOBJS) $(LIB)
 	
-check: unittests
+check: unittests ajs-jev
 	./unittests
+	./unittests.sh ./ajs-jev
 
 clean:
 	rm -f $(AJSOBJS) ajs ajs-pcm ajs-perf ajs-jev unittests
