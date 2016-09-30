@@ -18,6 +18,7 @@
 #include <getopt.h>
 #include <sched.h>
 #include <unistd.h>
+#include <cmath>
 #include "gmp.h"
 #define HAVE_MEMSET 1
 #include "gmp-impl.h"
@@ -825,7 +826,7 @@ class ajs {
         uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
       double total;
-      volatile int k = 0;
+      int k = 0;
 
       // Using asmjit_cast is purely optional, it's basically a C-style cast
       // that tries to make it visible that a function-type is returned.
@@ -860,53 +861,37 @@ class ajs {
       }
 
       qsort(times, TRIALS, sizeof(int), comp);
-#ifdef STRATEGY_MIN
-      int prev = times[0];
-      int i, diffs;
-      for (i = 0; (verbose || target % 10 == -1) && i < TRIALS; i++)
-        cout << times[i] << " ";
-      if (verbose || target % 10 == -1)
-        cout <<endl;
-      for (i = 0, diffs = 0; i < TRIALS; i++)
-      {
-        if (prev != times[i])
-        {
-          diffs++;
-          if (diffs == 2 || prev + 1 < times[i])
-            break;
-          prev = times[i];
-        }
-        total += times[i];
-      }
-      total /= ((double)i);
-#else
-      total = times[TRIALS/10];
-#endif
+      total = 0.;
 
-      static double last_total = 0.;
-      static unsigned long in_a_row = 0;
+      const size_t min_freq = 100 / sqrt(REPEATS);
 
-      if (verbose >= 2 && total == last_total && in_a_row < 1000) {
-          in_a_row++;
-      } else if (verbose >= 2) {
-          if (in_a_row > 0) {
-              cout << "# Had " << last_total << " cycles " << in_a_row << " times in a row." << endl;
-              fflush(stdout);
+      unsigned long total_sum = 0, total_weight = 0;
+      size_t cur_idx = 0;
+      for (size_t i = 1 ; i <= TRIALS; i++) {
+          if (i == TRIALS || times[i] != times[cur_idx]) {
+              unsigned long count = i - cur_idx;
+              if (count >= min_freq) {
+                  total_sum += count * times[cur_idx];
+                  total_weight += count;
+              }
+              cur_idx = i;
           }
-          last_total = total;
-          in_a_row = 1;
-          cout << "# New timings:";
+      }
+
+      total = (double) total_sum / (double) total_weight / (double) REPEATS;
+
+      if (total == 0. && verbose >= 1) {
+          cout << "# No conclusive timings: total=" << total << ", ";
           print_histogram(times, TRIALS);
           cout << endl;
       }
+      total = round(total);
 
-      if (total == 0 || total < overhead) {
-          printf("# Timing resulted in %f cycles with %f overhead\n", total, overhead);
-      } else if (verbose && 0) {
+      if (verbose && 0) {
           printf("# Timing resulted in %f cycles of which %f are overhead\n", total, overhead);
       }
 
-      return total - overhead;
+      return (total > overhead) ? total - overhead : 0.;
     }
 
     // adds the function func with the permutation perm applied to the X86Assembler
