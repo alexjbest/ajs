@@ -1315,15 +1315,13 @@ class ajs {
         const uint64_t overhead, const unsigned long maxPerms, vector<Transform>& transforms, uint64_t arg1,
         uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
-      vector< list<int> > lines(to + 1 - from);
       vector< int > remaining(to + 2 - from);
-      list<int> perm;
       list<int> id_perm;
 
       for (size_t i = 0; i < func.size(); i++) {
-        perm.push_back(i);
         id_perm.push_back(i);
       }
+      list<int> perm(id_perm);
 
       double bestTime = timeFunc(func, perm, numLabels,
           overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
@@ -1338,18 +1336,18 @@ class ajs {
       list<int>::iterator end = perm.begin();
       advance(end, to + 1);
 
-      for (list<int>::iterator i = start; i != end;)
+      vector< list<int> > lines(to + 1 - from);
+      for (list<int>::iterator i = start; i != end; i = perm.erase(i))
       {
-        Line& curLine = func[*i];
+        vector<int>& deps = func[*i].getDependencies();
         int depCount = 0;
-        for (vector<int>::const_iterator ci = curLine.getDependencies().begin();
-            ci != curLine.getDependencies().end(); ++ci)
+        for (vector<int>::const_iterator ci = deps.begin(); ci != deps.end();
+                ++ci)
         {
           if (*ci >= from && *ci <= to)
             depCount++;
         }
         lines[depCount].push_back(*i);
-        i = perm.erase(i);
       }
 
       unsigned long count = 1;
@@ -1432,6 +1430,66 @@ class ajs {
       return bestTime;
     }
 
+    static double tryPermsFromFile(list<int>& bestPerm, vector<Line>& func,
+        const char *filename, const int numLabels, const uint64_t overhead,
+        vector<Transform>& transforms, uint64_t arg1,
+        uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
+    {
+        FILE *inputPermFile;
+        unsigned long count = 0;
+        size_t lineBufSize = 1024;
+        char *lineBuf;
+
+        list<int> id_perm;
+
+        for (size_t i = 0; i < func.size(); i++) {
+          id_perm.push_back(i);
+        }
+
+        double bestTime = timeFunc(func, id_perm, numLabels,
+            overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+        const double origTime = bestTime;
+        bestPerm = id_perm;
+        printf("# original sequence: %lf\n", bestTime);
+        resetPermfile(bestTime);
+
+        inputPermFile = fopen(filename, "r");
+        if (inputPermFile == NULL) {
+            perror("Could not open input permutations file: ");
+            exit(EXIT_FAILURE);
+        }
+
+        lineBuf = (char *) malloc(lineBufSize * sizeof(char));
+        while (!feof(inputPermFile)) {
+            list<int> perm;
+            readLine(lineBuf, lineBufSize, inputPermFile);
+            if (lineBuf[0] == '#') {
+                continue;
+            }
+            char *parsePtr = lineBuf;
+            while(parsePtr[0] != '\n') {
+                char *newParsePtr;
+                const unsigned long n = strtoul(parsePtr, &newParsePtr, 10);
+                assert(parsePtr != newParsePtr);
+                parsePtr = newParsePtr;
+                assert(n < INT_MAX);
+                perm.push_back((int) n);
+                if (parsePtr[0] == ' ') {
+                    parsePtr++;
+                } else {
+                    assert(parsePtr[0] == '\n');
+                }
+            }
+            tryOnePerm(bestPerm, func, id_perm, perm, numLabels, overhead,
+                    transforms, arg1, arg2, arg3, arg4, arg5, arg6,
+                    bestTime, origTime);
+            count++;
+        }
+
+        printf("# tried %lu sequences\n", count);
+        return bestTime;
+    }
+
     static size_t round_up(const size_t s, const size_t m)
     {
     	assert(m > 0);
@@ -1447,7 +1505,7 @@ class ajs {
     static double superOptimise(list<int>& bestPerm, vector<Line>& func,
         const int numLabels, int from, int to, const uint64_t
         limbs, string signature, vector<Transform>& transforms,
-        const unsigned long maxPerms, int nopLine = -1)
+        const unsigned long maxPerms, const char *inPermFilename, int nopLine = -1)
     {
       double bestTime = 0, overhead = 0;
       uint64_t *mpn1, *mpn2, *mpn3, *mpn4, *result;
@@ -1507,53 +1565,57 @@ class ajs {
         timeFunc(func, idPerm, numLabels, 0, true, &transforms, arg1, arg2,
             arg3, arg4, arg5, arg6);
 
-      // set logger if we have verbosity at least 2
-      if (verbose >= 2)
+      // set logger if we have verbosity at least 3
+      if (verbose >= 3)
         assembler.setLogger(&logger);
 
       printf("# Getting timing for empty function\n");
       overhead = timeEmpty();
       printf("# overhead = %f\n", overhead);
 
-      bestTime = tryPerms(bestPerm, func, numLabels, from, to,
-          overhead, maxPerms, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+      if (inPermFilename != NULL) {
+          bestTime = tryPermsFromFile(bestPerm, func, inPermFilename, numLabels,
+                            overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+      } else {
+          bestTime = tryPerms(bestPerm, func, numLabels, from, to,
+                  overhead, maxPerms, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
 
-      // optionally add nops and time again
-      list<int> nopPerm;
-      if (nopLine != -1)
-      {
-        for (int i = 0; i < 2; i++)
-        {
-          printf("# trying %d nop(s)\n", i + 1);
-          vector<Line>::iterator pos = func.begin();
-          pos += nopLine;
-          pos = func.insert(pos, Line(X86Util::getInstIdByName("nop")));
-
-          shiftDeps(pos, func.end(), nopLine, 1);
-          shiftTransforms(transforms, nopLine, 1);
-
-          if (nopLine >= from && nopLine <= to)
-            to++;
-
-          double bestNopTime = tryPerms(nopPerm, func,
-              numLabels, from, to, overhead, maxPerms, transforms, arg1, arg2,
-              arg3, arg4, arg5, arg6);
-          if (bestNopTime < bestTime)
+          // optionally add nops and time again
+          list<int> nopPerm;
+          if (nopLine != -1)
           {
-            bestTime = bestNopTime;
-            bestPerm = nopPerm;
+            for (int i = 0; i < 2; i++)
+            {
+              printf("# trying %d nop(s)\n", i + 1);
+              vector<Line>::iterator pos = func.begin();
+              pos += nopLine;
+              pos = func.insert(pos, Line(X86Util::getInstIdByName("nop")));
+
+              shiftDeps(pos, func.end(), nopLine, 1);
+              shiftTransforms(transforms, nopLine, 1);
+
+              if (nopLine >= from && nopLine <= to)
+                to++;
+
+              double bestNopTime = tryPerms(nopPerm, func,
+                  numLabels, from, to, overhead, maxPerms, transforms, arg1, arg2,
+                  arg3, arg4, arg5, arg6);
+              if (bestNopTime < bestTime)
+              {
+                bestTime = bestNopTime;
+                bestPerm = nopPerm;
+              }
+            }
           }
-        }
-      }
 
-      // remove nops that were not helpful
-      while (func.size() > bestPerm.size())
-      {
-        vector<Line>::iterator pos = func.begin();
-        pos += nopLine;
-        pos = func.erase(pos);
+          // remove nops that were not helpful
+          while (func.size() > bestPerm.size())
+          {
+            vector<Line>::iterator pos = func.begin();
+            pos += nopLine;
+            pos = func.erase(pos);
+          }
       }
-
       free(mpn1);
       delete reference;
 
@@ -1591,7 +1653,7 @@ class ajs {
         const string signature, const int nopLine, const int loop,
         const string prepend, const string append, const unsigned long maxPerms,
         const int removeLabels, const int includeLeadIn, const char *permfilename,
-        const char *funcname)
+        const char *inPermFilename, const char *funcname)
     {
       int numLabels = 0;
 
@@ -1655,7 +1717,8 @@ class ajs {
       }
 
       double bestTime = superOptimise(bestPerm, func,
-          numLabels, start, end, limbs, signature, transforms, maxPerms, nopLine);
+          numLabels, start, end, limbs, signature, transforms, maxPerms,
+          inPermFilename, nopLine);
 
       list<int>::iterator startIt = bestPerm.begin();
       advance(startIt, start);
@@ -1806,6 +1869,7 @@ int main(int argc, char* argv[])
   char *outFile = NULL;
   char *inFile = NULL;
   const char *permfilename = NULL;
+  const char *inPermFilename = NULL;
   const char *funcname = NULL;
   string signature = "add_n", prepend = "", append = "";
   cpu_set_t cpuset;
@@ -1833,11 +1897,12 @@ int main(int argc, char* argv[])
     {"signature",     required_argument, 0, 's'},
     {"verbose",       optional_argument, 0, 'v'},
     {"outperm",       required_argument, 0, 'w'},
+    {"inperm",        required_argument, 0, 'b'},
     {"funcname",      required_argument, 0, 'f'},
     {0,               0,                 0, 0  }
   };
 
-  while ((c = getopt_long(argc, argv, "a:c:hiIl:L:m:n:o:p:r:Rs:v::w:f:",
+  while ((c = getopt_long(argc, argv, "a:c:hiIl:L:m:n:o:p:r:Rs:v::w:b:f:",
         long_options, &option_index)) != -1) {
 
     switch (c) {
@@ -1951,6 +2016,11 @@ int main(int argc, char* argv[])
           printf("# Writing all optimal permutations to %s\n", permfilename);
           break;
 
+      case 'b':
+          inPermFilename = optarg;
+          printf("# Reading permutations to try from %s\n", inPermFilename);
+          break;
+
       default:
           abort();
     }
@@ -1973,7 +2043,7 @@ int main(int argc, char* argv[])
   init_timing();
   int rc = ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax,
       signature, nopLine, loop, prepend, append, maxPerms, removeLabels, includeLeadIn,
-      permfilename, funcname);
+      permfilename, inPermFilename, funcname);
   clear_timing();
   return rc;
 }
