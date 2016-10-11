@@ -1001,9 +1001,7 @@ class ajs {
             ru_nivcsw = usage.ru_nivcsw;
 #endif
 
-            if (doCheckResult) {
-                reference->resetToPrevalue();
-            }
+            reference->resetToPrevalue();
             times = callFunc(funcPtr, overhead,
                     arg1, arg2, arg3, arg4, arg5, arg6);
 
@@ -1016,14 +1014,13 @@ class ajs {
                 fflush(stdout);
             }
 #endif
-        /* If doCheckResult is false, we cannot reset the pre-value to
-         * a reproducible state, and thus should not repeat the function
-         * call. If we did so for example in the very first function
-         * call to compute the reference value (which necesarily has
-         * doCheckResult=false), then the reference value would be incorrect.
-         */
-        } while(ru_nivcsw > 0 && doCheckResult);
+            if (times == 0. && verbose > 0) {
+                printf("# no conclusive result, re-running timing\n");
+            }
+        } while((times == 0. || ru_nivcsw > 0));
 
+        /* We check only if the function being run is the "real" function
+         * (as opposed to the empty function) as signified by doCheckResult */
         if (doCheckResult) {
             reference->check();
         }
