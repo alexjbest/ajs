@@ -1224,20 +1224,20 @@ class ajs {
       }
     }
 
-    static void write_permfile(list<int>& perm)
+    static void writePermutation(list<int>& perm, FILE *outFile)
     {
-        if (permfile == NULL)
+        if (outFile == NULL)
             return;
         bool first = true;
         for (list<int>::const_iterator i = perm.begin(); i != perm.end(); i++) {
-            FPRINTF(permfile, "%s%d", first ? "" : " ", *i);
+            FPRINTF(outFile, "%s%d", first ? "" : " ", *i);
             first = false;
         }
-        FPRINTF(permfile, "\n");
+        FPRINTF(outFile, "\n");
     }
 
     /* Truncate file of optimal permutations to zero size */
-    static void reset_permfile(const double timing){
+    static void resetPermfile(const double timing){
         if (permfile == NULL)
             return;
         if (fflush(permfile) != 0) {
@@ -1250,6 +1250,64 @@ class ajs {
             exit(EXIT_FAILURE);
         }
         FPRINTF(permfile, "# Timing: %f\n", timing);
+    }
+
+    static void tryOnePerm(list<int>& bestPerm, vector<Line>& func, list<int>& id_perm, list<int>& perm,
+            const int numLabels, const uint64_t overhead, vector<Transform>& transforms,
+            uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6,
+            double &bestTime, const double origTime)
+    {
+        if (verbose >= 2) {
+          printf("\n# timing sequence: ");
+        }
+        // time this permutation
+        double newTime = timeFunc(func, perm, numLabels,
+            overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+        if (newTime > 0 && newTime == bestTime) {
+            if (verbose >= 2) {
+                printf("# equally good sequence found: ");
+                writePermutation(perm, stdout);
+            }
+            writePermutation(perm, permfile);
+        }
+        if (newTime > 0 && (bestTime == 0 || bestTime - newTime > 0.25L))
+        {
+          printf("# better sequence found: %lf", newTime);
+          if (bestTime != 0)
+            printf(" delta: %lf", bestTime - newTime);
+          printf("\n");
+          bestPerm = perm;
+          bestTime = newTime;
+          printf("# ");
+          for (list<int>::const_iterator ci = perm.begin(); ci != perm.end(); ++ci)
+            printf("%d, ", *ci + 1);
+          printf("\n");
+
+          resetPermfile(newTime);
+          writePermutation(perm, permfile);
+
+          if (verbose) {
+              printf("# Timing empty function again\n");
+          }
+          const uint64_t overhead2 = timeEmpty();
+          if (overhead != overhead2) {
+              printf("# Warning: function call overhead changed from %lu to %lu\n",
+                      overhead, overhead2);
+          } else if (verbose) {
+              printf("# Timing for empty function is still %lu\n", overhead);
+          }
+          if (verbose) {
+              printf("# Timing original function again\n");
+          }
+          const double origTime2 = timeFunc(func, id_perm, numLabels,
+              overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+          if (origTime != origTime2) {
+              printf("# Warning: timing for original function changed from %.0f to %.0f\n",
+                      origTime, origTime2);
+          } else if (verbose) {
+              printf("# Timing for original function is still %.0f\n", origTime);
+          }
+        }
     }
 
     static double tryPerms(list<int>& bestPerm, vector<Line>& func,
@@ -1272,8 +1330,8 @@ class ajs {
       const double origTime = bestTime;
       bestPerm = perm;
       printf("# original sequence: %lf\n", bestTime);
-      reset_permfile(bestTime);
-      write_permfile(perm);
+      resetPermfile(bestTime);
+      writePermutation(perm, permfile);
 
       list<int>::iterator start = perm.begin();
       advance(start, from);
@@ -1339,51 +1397,9 @@ class ajs {
           if (level == to - from + 1)
           {
             count++;
-            if (verbose >= 2)
-              printf("\n# timing sequence:\n");
-            // time this permutation
-            double newTime = timeFunc(func, perm, numLabels,
-                overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
-            if (newTime > 0 && newTime == bestTime)
-                write_permfile(perm);
-            if (newTime > 0 && (bestTime == 0 || bestTime - newTime > 0.25L))
-            {
-              printf("# better sequence found: %lf", newTime);
-              if (bestTime != 0)
-                printf(" delta: %lf", bestTime - newTime);
-              printf("\n");
-              bestPerm = perm;
-              bestTime = newTime;
-              printf("# ");
-              for (list<int>::const_iterator ci = perm.begin(); ci != perm.end(); ++ci)
-                printf("%d, ", *ci + 1);
-              printf("\n");
-
-              reset_permfile(newTime);
-              write_permfile(perm);
-
-              if (verbose) {
-                  printf("# Timing empty function again\n");
-              }
-              const uint64_t overhead2 = timeEmpty();
-              if (overhead != overhead2) {
-                  printf("# Warning: function call overhead changed from %lu to %lu\n",
-                          overhead, overhead2);
-              } else if (verbose) {
-                  printf("# Timing for empty function is still %lu\n", overhead);
-              }
-              if (verbose) {
-                  printf("# Timing original function again\n");
-              }
-              const double origTime2 = timeFunc(func, id_perm, numLabels,
-                  overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
-              if (origTime != origTime2) {
-                  printf("# Warning: timing for original function changed from %.0f to %.0f\n",
-                          origTime, origTime2);
-              } else if (verbose) {
-                  printf("# Timing for original function is still %.0f\n", origTime);
-              }
-            }
+            tryOnePerm(bestPerm, func, id_perm, perm, numLabels, overhead,
+                    transforms, arg1, arg2, arg3, arg4, arg5, arg6,
+                    bestTime, origTime);
           }
 
           // update dependencies
