@@ -36,47 +36,62 @@ private:
     T *correctValue, *preValue;
 
 public:
-    referenceResult(T *r, size_t l) : result(r), len(l)
-    {
-        if (len > 0) {
-            preValue = (T *) malloc(len * sizeof(T));
-            correctValue = (T *) malloc(len * sizeof(T));
-        }
-    }
+    referenceResult(T *r, size_t l) : result(r), len(l), correctValue(NULL), preValue(NULL)
+    {}
 
     ~referenceResult()
     {
-        if (len > 0) {
+        if (preValue != NULL) {
             free(preValue);
+        }
+        if (correctValue != NULL) {
             free(correctValue);
         }
     }
 
     referenceResult(const referenceResult& that) = delete;
 
-    /* Set the data currently in the "result" area as the correct data */
+    /* Set the data currently in the "result" area as the input data */
     void setPrevalue() {
         if (len == 0)
             return;
+        if (preValue == NULL) {
+            preValue = (T *) malloc(len * sizeof(T));
+        }
         memcpy (preValue, result, len * sizeof(T));
     }
 
-    /* Set data in the "result" area back to the preValue */
+    /* Return whether a prevalue has been set or not */
+    bool havePrevalue() const {
+        return (preValue != NULL);
+    }
+
+    /* Set data in the "result" area back to the prevalue */
     void resetToPrevalue() const {
         if (len == 0)
             return;
+        assert(havePrevalue());
         memcpy(result, preValue, len * sizeof(T));
     }
 
-    /* Set the data currently in the "result" area as the correct data */
+    /* Set the data currently in the "result" area as the correct output data */
     void setCorrect() {
         if (len == 0)
             return;
+        if (correctValue == NULL) {
+            correctValue = (T *) malloc(len * sizeof(T));
+        }
         memcpy(correctValue, result, len * sizeof(T));
+    }
+
+    /* Return whether a correct value has been set or not */
+    bool haveCorrectValue() const {
+        return (correctValue != NULL);
     }
 
     /* Check whether the data in the "result" area matches the correct data */
     bool check() const {
+        assert(haveCorrectValue());
         if (len == 0 || memcmp(correctValue, result, len * sizeof(T)) == 0) {
             return true;
         }
