@@ -7,6 +7,7 @@
 
 #include <cctype>
 #include <cassert>
+#include <cstring>
 #include "utils.h"
 
 using std::endl;
@@ -176,4 +177,32 @@ int64_t getVal(string val) {
   if (loc != std::string::npos)
     return std::stol(val.c_str(), NULL, 16);
   return std::stol(val.c_str(), NULL, 10);
+}
+
+
+char *
+readLine(char * &lineBuf, size_t &lineBufSize, FILE *inputFile)
+{
+    size_t lineLen = 0;
+
+    assert(lineBufSize > 0);
+
+    do {
+        if (fgets(lineBuf + lineLen, lineBufSize - lineLen, inputFile) == NULL)
+        {
+            return NULL;
+        }
+        lineLen += strnlen(lineBuf + lineLen, lineBufSize - lineLen);
+        if (lineLen == lineBufSize - 1 && lineBuf[lineLen - 1] != '\n') {
+            const size_t newLineBufSize = 2 * lineBufSize;
+            lineBuf = (char *) realloc(lineBuf, newLineBufSize);
+            if (lineBuf == NULL) {
+                perror("Realloc lineBuf failed: ");
+                return NULL;
+            }
+            lineBufSize = newLineBufSize;
+            continue;
+        }
+    } while(0);
+    return lineBuf;
 }

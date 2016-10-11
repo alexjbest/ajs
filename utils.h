@@ -116,3 +116,6 @@ split_sum(std::string::iterator start, std::string::iterator end);
 
 int64_t
 getVal(std::string val);
+
+char *
+readLine(char * &lineBuf, size_t &lineBufSize, FILE *inputFile);
