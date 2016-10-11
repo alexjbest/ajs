@@ -822,7 +822,7 @@ class ajs {
 
     // calls the function given by funcPtr and returns the approximate number
     // of cycles taken
-    static double callFunc(void* funcPtr, unsigned long target,
+    static double callFunc(void* funcPtr,
         const double overhead, uint64_t arg1,
         uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
     {
@@ -857,15 +857,6 @@ class ajs {
           repeat_func_call(callableFunc, REPEATS, arg1, arg2, arg3, arg4, arg5, arg6);
           end_timing();
           times[i] = get_diff_timing();
-
-          /*if (0 && target != 0 && k >= LOOPSIZE >> 1 && curTotal > (target + 20) * (k + 1))
-          {
-            if (verbose)
-              printf("# cannot hit target, aborting\n");
-            if (total != -1)
-              curTotal = total + 1;
-            break;
-          }*/
         }
       }
 
@@ -981,7 +972,7 @@ class ajs {
 
     // makes a callable function using assembler then times the generated function with callFunc.
     static double timeFunc(vector<Line>& func, list<int>& perm,
-        int numLabels, unsigned long target, double overhead, const bool doCheckResult,
+        int numLabels, double overhead, const bool doCheckResult,
         vector<Transform>* transforms,
         uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4,
         uint64_t arg5, uint64_t arg6)
@@ -1013,7 +1004,7 @@ class ajs {
             if (doCheckResult) {
                 reference->resetToPrevalue();
             }
-            times = callFunc(funcPtr, target, overhead,
+            times = callFunc(funcPtr, overhead,
                     arg1, arg2, arg3, arg4, arg5, arg6);
 
 #ifdef SKIP_CONTEXT_SWITCHES
@@ -1276,8 +1267,7 @@ class ajs {
         id_perm.push_back(i);
       }
 
-
-      double bestTime = timeFunc(func, perm, numLabels, 0,
+      double bestTime = timeFunc(func, perm, numLabels,
           overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
       const double origTime = bestTime;
       bestPerm = perm;
@@ -1353,7 +1343,7 @@ class ajs {
               printf("\n# timing sequence:\n");
             // time this permutation
             double newTime = timeFunc(func, perm, numLabels,
-                count, overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+                overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
             if (newTime > 0 && newTime == bestTime)
                 write_permfile(perm);
             if (newTime > 0 && (bestTime == 0 || bestTime - newTime > 0.25L))
@@ -1385,7 +1375,7 @@ class ajs {
               if (verbose) {
                   printf("# Timing original function again\n");
               }
-              const double origTime2 = timeFunc(func, id_perm, numLabels, 0,
+              const double origTime2 = timeFunc(func, id_perm, numLabels,
                   overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
               if (origTime != origTime2) {
                   printf("# Warning: timing for original function changed from %.0f to %.0f\n",
@@ -1488,7 +1478,7 @@ class ajs {
       reference = new referenceResult<uint64_t>(result, resultLen);
       reference->setPrevalue();
       if (resultLen > 0) {
-          timeFunc(func, idPerm, numLabels, 0, 0, false, &transforms, arg1, arg2,
+          timeFunc(func, idPerm, numLabels, 0, false, &transforms, arg1, arg2,
                       arg3, arg4, arg5, arg6);
           reference->setCorrect();
       }
@@ -1498,7 +1488,7 @@ class ajs {
           printf("# Warming up the processor\n");
       }
       for (int i = 0; i < WARMUP_LENGTH && !exiting; i++)
-        timeFunc(func, idPerm, numLabels, 0, 0, true, &transforms, arg1, arg2,
+        timeFunc(func, idPerm, numLabels, 0, true, &transforms, arg1, arg2,
             arg3, arg4, arg5, arg6);
 
       // set logger if we have verbosity at least 2
@@ -1710,7 +1700,7 @@ class ajs {
         Line ret(X86Util::getInstIdByName("ret"));
         vector<Line> emptyFunc(1, ret);
         list<int> emptyPerm(1, 0);
-        overhead = timeFunc(emptyFunc, emptyPerm, 0, 0, 0,
+        overhead = timeFunc(emptyFunc, emptyPerm, 0, 0,
                 false, NULL, 0, 0, 0, 0, 0, 0);
         return overhead;
     }
