@@ -13,6 +13,20 @@
         } \
     } while (0)
 
+static inline void
+ularith_div_2ul_ul_ul (unsigned long *q, unsigned long *r, 
+                       const unsigned long a1, const unsigned long a2, 
+                       const unsigned long b)
+{
+  assert(a2 < b); /* Or there will be quotient overflow */
+  __asm__ (
+    "divq %4"
+    : "=a" (*q), "=d" (*r)
+    : "0" (a1), "1" (a2), "rm" (b)
+    : "cc");
+}
+
+
 /* Functor that tests whether a value is in [start, end[.
  * Note that the end value is NOT included in the range, similarly
  * as in Python. */
