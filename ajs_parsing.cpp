@@ -49,6 +49,7 @@ parse_pointer_intel(string addr, uint32_t const size, bool const verbose)
             for (vector<string>::iterator it2 = words.begin(); it2 != words.end(); it2++){
                 if (containsAlpha(*it2)){
                     assert(reg == noGpReg);
+                    std::transform(it2->begin(), it2->end(), it2->begin(), ::tolower);
                     reg = getGpRegFromName(*it2);
                     assert(reg != noGpReg);
                 } else {
