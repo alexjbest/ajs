@@ -21,9 +21,6 @@
 #include <cmath>
 #include <alloca.h>
 #include "gmp.h"
-#define HAVE_MEMSET 1
-#include "gmp-impl.h"
-#include "longlong.h"
 #include "line.h"
 #include "transform.h"
 #include "utils.h"
@@ -1133,24 +1130,13 @@ class ajs {
       {
         mp_size_t j, k = signature.at(6) - '0';
         mp_limb_t dummy __attribute__((__unused__));
-        mp_limb_t i, c, ds, d = 5806679768680879695ULL;
+        const mp_limb_t d = 5806679768680879695ULL;
 
-        count_leading_zeros(c, d);
-        ds = d << c;
-
-        invert_limb(i, ds);
-
-        udiv_qrnnd_preinv(dummy, db[0], ((mp_limb_t) 1)<<c, 0, ds, i);  /* this is B%ds */
-
+	ularith_div_2ul_ul_ul(&dummy, &db[j], 1UL, 0, d);
         for (j = 1; j <= k; j++)
         {
-          udiv_qrnnd_preinv(dummy, db[j], db[j - 1], 0, ds, i);
-          db[j - 1]>>=c;
+          ularith_div_2ul_ul_ul(&dummy, &db[j], db[j-1], 0, d);
         }
-
-        /* now db[j] = B^j % d */
-
-        db[k]>>=c;
 
         arg1 = reinterpret_cast<uint64_t>(rem);
         arg2 = reinterpret_cast<uint64_t>(mpn2);
