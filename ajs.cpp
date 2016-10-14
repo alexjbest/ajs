@@ -79,6 +79,7 @@ class ajs {
     static int verbose;
     static FILE *permfile;
     static referenceResult<uint64_t> *reference;
+    static int *times;
 
     static Imm getValAsImm(string val) {
       return Imm(getVal(val));
@@ -832,7 +833,6 @@ class ajs {
       // Using asmjit_cast is purely optional, it's basically a C-style cast
       // that tries to make it visible that a function-type is returned.
       FuncType callableFunc = asmjit_cast<FuncType>(funcPtr);
-      int times[TRIALS];
 
       /* Call function a few times to fetch code and data into caches,
        * set up branch prediction, etc. */
@@ -841,7 +841,6 @@ class ajs {
       total = -1;
       for (int i = 0; i < TRIALS; i++)
       {
-        times[i] = 0;
         for (k = 0; k < LOOPSIZE; k++)
         {
           start_timing();
@@ -1497,7 +1496,8 @@ class ajs {
               size2 = round_up(limbs * sizeof(uint64_t), 16),
               size3 = round_up(limbs * sizeof(uint64_t), 16),
               size4 = round_up(2 * limbs * sizeof(uint64_t), 16),
-              size_total = size1 + size2 + size3 + size4;
+              times_size = TRIALS * sizeof(int),
+              size_total = size1 + size2 + size3 + size4 + times_size;
 
       mpn1 = (uint64_t*)aligned_alloc(4096, size_total);
       memset(mpn1, 0, size_total);
@@ -1505,6 +1505,7 @@ class ajs {
       mpn3 = mpn2 + size2 / sizeof(uint64_t);
       // rest is a double size mpn, e.g. for output of mpn_mul
       mpn4 = mpn3 + size3 / sizeof(uint64_t);
+      times = (int *) (mpn4 + size4 / sizeof(uint64_t));
 
       gmp_randstate_t rng;
       gmp_randinit_default (rng);
@@ -1773,6 +1774,7 @@ X86Assembler ajs::assembler(&runtime);
 FileLogger ajs::logger(stdout);
 FILE *ajs::permfile = NULL;
 referenceResult<uint64_t> *ajs::reference = NULL;
+int *ajs::times = NULL;
 
 void sig_handler(int signo)
 {
