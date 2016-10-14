@@ -834,15 +834,6 @@ class ajs {
       FuncType callableFunc = asmjit_cast<FuncType>(funcPtr);
       int times[TRIALS];
 
-      const bool do_padding = true;
-      const size_t stack_page_offset = (uintptr_t) (&arg1) % 4096;
-      const size_t padding_size = 16 + stack_page_offset;
-      char *padding;
-      if (do_padding) {
-        padding = (char *) alloca(padding_size);
-        memset(padding, 0, padding_size);
-      }
-
       /* Call function a few times to fetch code and data into caches,
        * set up branch prediction, etc. */
       repeat_func_call(callableFunc, PREFETCH_CALLS, arg1, arg2, arg3, arg4, arg5, arg6);
@@ -857,14 +848,6 @@ class ajs {
           repeat_func_call(callableFunc, REPEATS, arg1, arg2, arg3, arg4, arg5, arg6);
           end_timing();
           times[i] = get_diff_timing();
-        }
-      }
-
-      if (do_padding) {
-        for (size_t i = 0; i < padding_size; i++) {
-          if (padding[i] != 0) {
-            abort();
-          }
         }
       }
 
@@ -2038,9 +2021,28 @@ int main(int argc, char* argv[])
   }
 
   init_timing();
+
+  const bool do_padding = true;
+  const size_t stack_page_offset = (uintptr_t) (&argc) % 4096;
+  const size_t padding_size = 16 + stack_page_offset;
+  char *padding;
+  if (do_padding) {
+    padding = (char *) alloca(padding_size);
+    memset(padding, 0, padding_size);
+  }
+
   int rc = ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax,
       signature, nopLine, loop, prepend, append, maxPerms, removeLabels, includeLeadIn,
       permfilename, inPermFilename, funcname);
+
+  if (do_padding) {
+    for (size_t i = 0; i < padding_size; i++) {
+      if (padding[i] != 0) {
+        abort();
+      }
+    }
+  }
+
   clear_timing();
   return rc;
 }
