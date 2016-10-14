@@ -135,6 +135,15 @@ static inline uint64_t idrdtscpl()
   return ((uint64_t) high << 32) + (uint64_t) low;
 }
 
+__attribute__((__unused__, __artificial__, __always_inline__))
+static inline unsigned long
+rdpmc(const unsigned int selector)
+{
+    unsigned hi, lo;
+    __asm__ volatile("rdpmc" : "=a" (lo), "=d" (hi) : "c" (selector));
+    return ((unsigned long)lo) + (((unsigned long)hi) << 32);
+}
+
 // rdpmc_cycles uses a "fixed-function" performance counter to return
 // the count of actual CPU core cycles executed by the current core.
 // Core cycles are not accumulated while the processor is in the "HALT"
@@ -169,13 +178,9 @@ __attribute__((__unused__, __artificial__, __always_inline__))
 static inline unsigned long
 rdpmc_cycles()
 {
-   unsigned a, d;
    const unsigned c = (1<<30) + 1; /* Second Fixed-function counter:
                                       clock cycles in non-HALT */
-
-   __asm__ volatile("rdpmc" : "=a" (a), "=d" (d) : "c" (c));
-
-   return ((unsigned long)a) + (((unsigned long)d) << 32);
+   return rdpmc(c);
 }
 
 __attribute__((__unused__, __artificial__, __always_inline__))

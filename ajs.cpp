@@ -1289,25 +1289,16 @@ class ajs {
         }
     }
 
-    static double tryPerms(list<int>& bestPerm, vector<Line>& func,
+    static double tryPerms(list<int>& bestPerm, vector<Line>& func, list<int> &id_perm,
         const int numLabels, const int from, const int to,
         const uint64_t overhead, const unsigned long maxPerms, vector<Transform>& transforms, uint64_t arg1,
-        uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
+        uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6, const double origTime)
     {
       vector< int > remaining(to + 2 - from);
-      list<int> id_perm;
-
-      for (size_t i = 0; i < func.size(); i++) {
-        id_perm.push_back(i);
-      }
       list<int> perm(id_perm);
 
-      double bestTime = timeFunc(func, perm, numLabels,
-          overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
-      const double origTime = bestTime;
-      bestPerm = perm;
-      printf("# original sequence: %lf\n", bestTime);
-      resetPermfile(bestTime);
+      double bestTime = origTime;
+      bestPerm = id_perm;
       writePermutation(perm, permfile);
 
       list<int>::iterator start = perm.begin();
@@ -1410,27 +1401,17 @@ class ajs {
     }
 
     static double tryPermsFromFile(list<int>& bestPerm, vector<Line>& func,
-        const char *filename, const int numLabels, const uint64_t overhead,
+        const char *filename, list<int> &id_perm, const int numLabels, const uint64_t overhead,
         vector<Transform>& transforms, uint64_t arg1,
-        uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6)
+        uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6, const double origTime)
     {
         FILE *inputPermFile;
         unsigned long count = 0;
         size_t lineBufSize = 1024;
         char *lineBuf;
 
-        list<int> id_perm;
-
-        for (size_t i = 0; i < func.size(); i++) {
-          id_perm.push_back(i);
-        }
-
-        double bestTime = timeFunc(func, id_perm, numLabels,
-            overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
-        const double origTime = bestTime;
+        double bestTime = origTime;
         bestPerm = id_perm;
-        printf("# original sequence: %lf\n", bestTime);
-        resetPermfile(bestTime);
 
         inputPermFile = fopen(filename, "r");
         if (inputPermFile == NULL) {
@@ -1529,7 +1510,7 @@ class ajs {
       for (size_t i = 0; i < func.size(); i++)
         idPerm.push_back(i);
 
-      /* Compute a reference result? */
+      /* Compute a reference result */
       reference = new referenceResult<uint64_t>(result, resultLen);
       reference->setPrevalue();
       if (resultLen > 0) {
@@ -1551,15 +1532,34 @@ class ajs {
         assembler.setLogger(&logger);
 
       printf("# Getting timing for empty function\n");
+      unsigned long pmc0 = rdpmc(0), pmc1 = rdpmc(1), pmc2 = rdpmc(2), pmc3 = rdpmc(3);
       overhead = timeEmpty();
-      printf("# overhead = %f\n", overhead);
+      pmc0 = rdpmc(0) - pmc0;
+      pmc1 = rdpmc(1) - pmc1;
+      printf("# overhead = %f (pmc0: %lu, pmc1: %lu, pmc2: %lu, pmc3: %lu)\n",
+              overhead, pmc0, pmc1, pmc2, pmc3);
+
+      list<int> id_perm;
+      for (size_t i = 0; i < func.size(); i++) {
+        id_perm.push_back(i);
+      }
+
+      printf("# Getting timing for original function\n");
+      pmc0 = rdpmc(0); pmc1 = rdpmc(1); pmc2 = rdpmc(2); pmc3 = rdpmc(3);
+      double origTime = timeFunc(func, id_perm, numLabels,
+          overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+      pmc0 = rdpmc(0) - pmc0;
+      pmc1 = rdpmc(1) - pmc1;
+      printf("# original sequence: %lf (pmc0: %lu, pmc1: %lu, pmc2: %lu, pmc3: %lu)\n",
+              origTime, pmc0, pmc1, pmc2, pmc3);
+      resetPermfile(origTime);
 
       if (inPermFilename != NULL) {
-          bestTime = tryPermsFromFile(bestPerm, func, inPermFilename, numLabels,
-                            overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+          bestTime = tryPermsFromFile(bestPerm, func, inPermFilename, id_perm, numLabels,
+                            overhead, transforms, arg1, arg2, arg3, arg4, arg5, arg6, origTime);
       } else {
-          bestTime = tryPerms(bestPerm, func, numLabels, from, to,
-                  overhead, maxPerms, transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+          bestTime = tryPerms(bestPerm, func, id_perm, numLabels, from, to,
+                  overhead, maxPerms, transforms, arg1, arg2, arg3, arg4, arg5, arg6, origTime);
 
           // optionally add nops and time again
           list<int> nopPerm;
@@ -1578,9 +1578,9 @@ class ajs {
               if (nopLine >= from && nopLine <= to)
                 to++;
 
-              double bestNopTime = tryPerms(nopPerm, func,
+              double bestNopTime = tryPerms(nopPerm, func, id_perm,
                   numLabels, from, to, overhead, maxPerms, transforms, arg1, arg2,
-                  arg3, arg4, arg5, arg6);
+                  arg3, arg4, arg5, arg6, origTime);
               if (bestNopTime < bestTime)
               {
                 bestTime = bestNopTime;
