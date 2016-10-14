@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <sstream>
 #define MAX_OPS 3
-#include "asmjit.h"
 
 class Line
 {
