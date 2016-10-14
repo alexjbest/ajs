@@ -19,7 +19,7 @@ CXX = g++
 ODIR = obj
 SDIR = src
 INC = -I. -I$(INCLUDE_ASMJIT) -I$(GMPIMPL) -I$(GMPMPARAM)
-LIB = -lasmjit -lgmp
+LIB = -lgmp
 CFLAGS = -g -O2 -std=gnu11 -Wall -Wextra
 CXXFLAGS = -g -O2 --std=c++0x -Wall
 
