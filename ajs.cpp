@@ -1,3 +1,4 @@
+#include "config.h"
 #include <stdlib.h>
 #include <iostream>
 #include <fstream>
@@ -27,8 +28,6 @@
 #include "rdtsc.h"
 #include "ajs_parsing.h"
 #include "eval.h"
-
-#include "config.h"
 
 
 #define debug_print(fmt, ...) \
