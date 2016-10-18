@@ -1633,6 +1633,20 @@ class ajs {
       exit(EXIT_FAILURE);
     }
 
+#define printOneConfigVar(X) do{cout << "# "#X << " = " << X << endl;}while(0)
+
+    static void print_config() {
+        printOneConfigVar(MAX_OPS);
+        printOneConfigVar(TRIALS);
+        printOneConfigVar(LOOPSIZE);
+        printOneConfigVar(WARMUP_LENGTH);
+        printOneConfigVar(REPEATS);
+        printOneConfigVar(PREFETCH_CALLS);
+        printOneConfigVar(TIMING_SERIALIZE);
+        printOneConfigVar(SKIP_CONTEXT_SWITCHES);
+        printOneConfigVar(NOINLINE_REPEAT);
+    }
+
     static int run(const char* file, int start, int end, const uint64_t limbs,
         const char* outFile, const int _verbose, const int intelSyntax,
         const string signature, const int nopLine, const int loop,
@@ -2025,6 +2039,8 @@ int main(int argc, char* argv[])
     CPU_SET(cpunum, &cpuset);
     sched_setaffinity(getpid(), sizeof(cpuset), &cpuset);
   }
+
+  ajs::print_config();
 
   init_timing();
 
