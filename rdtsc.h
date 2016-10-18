@@ -178,7 +178,7 @@ __attribute__((__unused__, __artificial__, __always_inline__))
 static inline unsigned long
 rdpmc_cycles()
 {
-   const unsigned c = (1<<30) + 1; /* Second Fixed-function counter:
+   const unsigned c = (1U<<30) + 1; /* Second Fixed-function counter:
                                       clock cycles in non-HALT */
    return rdpmc(c);
 }
@@ -187,7 +187,7 @@ __attribute__((__unused__, __artificial__, __always_inline__))
 static inline void
 rdpmc_cycles2(unsigned *lo, unsigned *hi)
 {
-   const unsigned c = (1<<30) + 1; /* Second Fixed-function counter:
+   const unsigned c = (1U<<30) + 1; /* Second Fixed-function counter:
                                       clock cycles in non-HALT */
 
    __asm__ volatile("rdpmc" : "=a" (*lo), "=d" (*hi) : "c" (c));
@@ -271,7 +271,7 @@ static inline void end_timing()
                                           /* obtain counter value */
 #elif defined(USE_JEVENTS)
 #ifdef TIMING_SERIALIZE
-    // rdtscpl();
+    rdtscpl();
 #endif
 #ifdef IMMEDIATE_RDPMC
     end_time = rdpmc_cycles();
