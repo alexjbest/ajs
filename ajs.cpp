@@ -134,6 +134,7 @@ class ajs {
       // bracket style depends on syntax used
       const char openBracket = intelSyntax ? '[' : '(';
       op = trim(op);
+      std::transform(op.begin(), op.end(), op.begin(), ::tolower);
 
       if (count(op.begin(), op.end(), openBracket) > 0)
         return getPtrFromAddress(op, size, intelSyntax);
