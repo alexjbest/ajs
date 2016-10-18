@@ -1,5 +1,8 @@
 /* Configurable options for AJS */
 
+#ifndef __CONFIG_H
+#define __CONFIG_H
+
 #define MAX_OPS 3
 #define TRIALS 600
 #define LOOPSIZE 1
@@ -13,3 +16,4 @@
 
 //#define STRATEGY_MIN
 //#define USE_INTEL_PCM
+#endif
