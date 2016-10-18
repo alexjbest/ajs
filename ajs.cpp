@@ -750,24 +750,37 @@ class ajs {
           }
 
           // check for dependencies annotated in the source
-          if (parsed.size() > 0 && parsed[0].size() > 5 && parsed[0].at(0) == commentChar && parsed[0].substr(1,4) == "ajs:")
-          {
-            std::vector<std::string> deps = split(parsed[0].substr(5), ',');
-            parsed.erase(parsed.begin());
-
-            for (vector<string>::const_iterator ci = deps.begin(); ci != deps.end(); ++ci)
-            {
-              if(ci->compare("notshortform") == 0) {
-                  newLine.addOption(Line::OptNotShortForm);
-                  continue;
+          if (parsed.size() > 0 && parsed[0].size() > 0 && parsed[0].at(0) == commentChar) {
+              // Drop the comment char
+              parsed[0].erase(0, 1);
+              /* If there was any whitespace after the comment char, skip to next word */
+              while (parsed.size() > 0 && parsed[0].size() == 0) {
+                  parsed.erase(parsed.begin());
               }
-              int group = atoi(ci->c_str());
-              if (depGroups.count(group) == 0)
-                depGroups[group] = vector<int>();
-              for (vector<int>::iterator dep = depGroups[group].begin(); dep != depGroups[group].end(); ++dep)
-                newLine.addDependency(*dep);
-              depGroups[group].push_back(func.size());
-            }
+              if (parsed.size() > 0 && parsed[0].size() > 4 && parsed[0].substr(0, 4) == "ajs:")
+              {
+                  std::vector<std::string> deps = split(parsed[0].substr(4), ',');
+                  parsed.erase(parsed.begin());
+
+                  for (vector<string>::const_iterator ci = deps.begin(); ci != deps.end(); ++ci)
+                  {
+                      if(ci->compare("notshortform") == 0) {
+                          if (X86Util::getInstInfo(newLine.getInstruction()).getExtendedInfo().isFlow()) {
+                              newLine.addOption(Line::OptNotShortForm);
+                          } else {
+                              printf ("# Warning: the following line has ajs:notshortform annotation but is not control flow. "
+                                      "Ignoring annotation.\n# %s\n", str.c_str());
+                          }
+                          continue;
+                      }
+                      int group = atoi(ci->c_str());
+                      if (depGroups.count(group) == 0)
+                          depGroups[group] = vector<int>();
+                      for (vector<int>::iterator dep = depGroups[group].begin(); dep != depGroups[group].end(); ++dep)
+                          newLine.addDependency(*dep);
+                      depGroups[group].push_back(func.size());
+                  }
+              }
           }
           if (!newLine.isValid()) {
               cout << "Error parsing: " << str << endl;
@@ -932,8 +945,13 @@ class ajs {
             assembler.getLogger()->logFormat(Logger::kStyleComment,"# %s\n", curLine.getOrigLine());
         }
 
-        if (!curLine.hasOption(Line::OptNotShortForm)) {
-            assembler.setInstOptions(kInstOptionShortForm);
+        if (X86Util::getInstInfo(curLine.getInstruction()).getExtendedInfo().isFlow()) {
+            if (curLine.hasOption(Line::OptNotShortForm)) {
+                /* FIXME: ugly hack! Assembler has no accessor functions, though :( */
+                assembler._comment = "ajs:notshortform";
+            } else {
+                assembler.setInstOptions(kInstOptionShortForm);
+            }
         }
         asmjit::Error error = assembler.emit(curLine.getInstruction(), curLine.getOp(0),
                 curLine.getOp(1), curLine.getOp(2));
