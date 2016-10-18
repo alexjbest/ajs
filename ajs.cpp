@@ -989,12 +989,10 @@ class ajs {
         }
 
         double times;
-        long ru_nivcsw = 0;
+        long nivcsw = 0;
         do {
 #ifdef SKIP_CONTEXT_SWITCHES
-            struct rusage usage;
-            getrusage(RUSAGE_SELF, &usage);
-            ru_nivcsw = usage.ru_nivcsw;
+            nivcsw = get_nivcsw();
 #endif
 
             reference->resetToPrevalue();
@@ -1002,10 +1000,10 @@ class ajs {
                     arg1, arg2, arg3, arg4, arg5, arg6);
 
 #ifdef SKIP_CONTEXT_SWITCHES
-            getrusage(RUSAGE_SELF, &usage);
-            assert(usage.ru_nivcsw >= ru_nivcsw);
-            ru_nivcsw = usage.ru_nivcsw - ru_nivcsw;
-            if (ru_nivcsw > 0 && verbose > 0) {
+            long int  nivcsw2 = get_nivcsw();
+            assert(nivcsw2 >= nivcsw);
+            nivcsw = nivcsw2 - nivcsw;
+            if (nivcsw > 0 && verbose > 0) {
                 printf("# Had context switch, re-running timing\n");
                 fflush(stdout);
             }
