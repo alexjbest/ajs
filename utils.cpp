@@ -8,6 +8,8 @@
 #include <cctype>
 #include <cassert>
 #include <cstring>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include "utils.h"
 
 using std::endl;
@@ -205,4 +207,12 @@ readLine(char * &lineBuf, size_t &lineBufSize, FILE *inputFile)
         }
     } while(0);
     return lineBuf;
+}
+
+long int
+get_nivcsw()
+{
+    struct rusage usage;
+    getrusage(RUSAGE_SELF, &usage);
+    return usage.ru_nivcsw;
 }

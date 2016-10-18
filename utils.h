@@ -148,3 +148,6 @@ getVal(std::string val);
 
 char *
 readLine(char * &lineBuf, size_t &lineBufSize, FILE *inputFile);
+
+long int
+get_nivcsw();
