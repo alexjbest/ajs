@@ -877,20 +877,24 @@ class ajs {
           }
       }
 
-      total = (double) total_sum / (double) total_weight / (double) REPEATS;
-
-      if (total == 0. && verbose >= 1) {
-          cout << "# No conclusive timings: total=" << total << ", ";
-          print_histogram(times, TRIALS);
-          cout << endl;
+      if (total_weight > 0) {
+          total = (double) total_sum / (double) total_weight / (double) REPEATS;
+      } else {
+          total = -1.;
+          if (verbose >= 1) {
+              cout << "# No conclusive timings: total=" << total << ", ";
+              print_histogram(times, TRIALS);
+              cout << endl;
+          }
       }
-      total = round(total);
 
       if (verbose && 0) {
           printf("# Timing resulted in %f cycles of which %f are overhead\n", total, overhead);
+          print_histogram(times, TRIALS);
+          cout << endl;
       }
 
-      return (total > overhead) ? total - overhead : 0.;
+      return round(total);
     }
 
     // adds the function func with the permutation perm applied to the X86Assembler
@@ -1008,10 +1012,15 @@ class ajs {
                 fflush(stdout);
             }
 #endif
-            if (times == 0. && verbose > 0) {
+            if (times == -1. && verbose > 0) {
                 printf("# no conclusive result, re-running timing\n");
             }
-        } while((times == 0. || ru_nivcsw > 0));
+            if (times < overhead && verbose > 0) {
+                printf("# measured time %f less than overhead %f, re-running timing\n",
+                        times, overhead);
+                times = -1.;
+            }
+        } while((times == -1. || nivcsw > 0));
 
         /* We check only if the function being run is the "real" function
          * (as opposed to the empty function) as signified by doCheckResult */
