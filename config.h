@@ -6,8 +6,8 @@
 #define MAX_OPS 3
 #define TRIALS 600
 #define LOOPSIZE 1
-#define WARMUP_LENGTH 100
-#define REPEATS 1
+#define WARMUP_LENGTH 10
+#define REPEATS 16
 #define PREFETCH_CALLS 8
 #define TIMING_SERIALIZE 1
 #define SKIP_CONTEXT_SWITCHES 1
