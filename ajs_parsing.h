@@ -94,7 +94,7 @@ static asmjit::X86Reg getYmmRegFromName(std::string name) {
         regreg(r##X##b); \
     } while (0)
 
-static inline asmjit::X86GpReg
+static asmjit::X86GpReg
 getGpRegFromName(std::string name) {
   using namespace asmjit::x86;
   regabcd(a);  regabcd(b);  regabcd(c);  regabcd(d);
@@ -104,7 +104,7 @@ getGpRegFromName(std::string name) {
   return noGpReg;
 }
 
-static inline asmjit::X86Reg
+static asmjit::X86Reg
 getRegFromName(std::string name) {
   if (name.at(0) == 'x') {
       return getXmmRegFromName(name);
