@@ -35,6 +35,27 @@ static asmjit::X86Reg getXmmRegFromName(std::string name) {
     return noGpReg;
 }
 
+static asmjit::X86Reg getYmmRegFromName(std::string name) {
+    using namespace asmjit::x86;
+    regreg(ymm0);
+    regreg(ymm1);
+    regreg(ymm2);
+    regreg(ymm3);
+    regreg(ymm4);
+    regreg(ymm5);
+    regreg(ymm6);
+    regreg(ymm7);
+    regreg(ymm8);
+    regreg(ymm9);
+    regreg(ymm10);
+    regreg(ymm11);
+    regreg(ymm12);
+    regreg(ymm13);
+    regreg(ymm14);
+    regreg(ymm15);
+    return noGpReg;
+}
+
 /* The ax, bx, cx, dx registers can be named, e.g.,
  * rax, eax, ax, ah, al, axl (=al)
  * to refer to different widths/parts.
@@ -85,9 +106,12 @@ getGpRegFromName(std::string name) {
 
 static inline asmjit::X86Reg
 getRegFromName(std::string name) {
-  if (name.at(0) == 'x')
-    return getXmmRegFromName(name);
-  return getGpRegFromName(name);
+  if (name.at(0) == 'x') {
+      return getXmmRegFromName(name);
+  } else if (name.at(0) == 'y') {
+      return  getYmmRegFromName(name);
+  } else
+      return getGpRegFromName(name);
 }
 
 
