@@ -1,3 +1,4 @@
+#include "config.h"
 #include "line.h"
 #include <assert.h>
 

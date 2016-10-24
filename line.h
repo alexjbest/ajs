@@ -5,7 +5,9 @@
 #include <vector>
 #include <stdlib.h>
 #include <sstream>
+#ifndef MAX_OPS
 #define MAX_OPS 3
+#endif
 
 class Line
 {

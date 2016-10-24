@@ -958,7 +958,7 @@ class ajs {
             }
         }
         asmjit::Error error = assembler.emit(curLine.getInstruction(), curLine.getOp(0),
-                curLine.getOp(1), curLine.getOp(2));
+                curLine.getOp(1), curLine.getOp(2), curLine.getOp(3));
         if (error != 0) {
             cout << "asmjit Error: " << error << ", input line was: " << curLine.getOrigLine() << endl;
             abort();

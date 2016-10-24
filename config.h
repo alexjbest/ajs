@@ -3,7 +3,7 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
-#define MAX_OPS 3
+#define MAX_OPS 4
 #define TRIALS 600
 #define LOOPSIZE 1
 #define WARMUP_LENGTH 10
