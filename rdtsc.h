@@ -283,7 +283,7 @@ static inline void end_timing()
 #endif
 }
 
-static uint64_t get_diff_timing()
+static inline uint64_t get_diff_timing()
 {
 #ifdef USE_INTEL_PCM
     return getCycles(before_sstate,after_sstate);
