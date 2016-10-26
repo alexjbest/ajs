@@ -786,10 +786,15 @@ class ajs {
               assert(newLine.isValid());
           }
           func.push_back(newLine);
-          if (verbose >= 2 && newLine.isInstruction()) {
-              cout << "# Parsed: " << str << endl;
-              assembler.emit(newLine.getInstruction(), newLine.getOp(0), newLine.getOp(1),
-                      newLine.getOp(2), newLine.getOp(3));
+          if (verbose >= 2) {
+              if (newLine.isInstruction()) {
+                  cout << "# Parsed: " << str << endl;
+                  assembler.emit(newLine.getInstruction(), newLine.getOp(0), newLine.getOp(1),
+                          newLine.getOp(2), newLine.getOp(3));
+              } else if (newLine.isLabel()) {
+                  cout << "# Parsed: " << str << endl;
+                  cout << "L" << newLine.getLabel() << ":" << endl;
+              }
           }
         }
       }
