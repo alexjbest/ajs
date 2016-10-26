@@ -14,7 +14,7 @@
 #define regreg2(N,M)  do {if (istrcmp(name, #N)) return M;} while(0)
 #define regreg(N) regreg2(N,N)
 
-static inline bool
+static bool
 istrcmp(const std::string s1, const char *s2) {
   bool result = true;
   if (s1.size() != strlen(s2))
