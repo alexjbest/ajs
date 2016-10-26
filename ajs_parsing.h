@@ -11,8 +11,20 @@
 #include <string>
 #include <asmjit/asmjit.h>
 
-#define regreg2(N,M)  do {if (name == #N) return M;} while(0)
+#define regreg2(N,M)  do {if (istrcmp(name, #N)) return M;} while(0)
 #define regreg(N) regreg2(N,N)
+
+static inline bool
+istrcmp(const std::string s1, const char *s2) {
+  bool result = true;
+  if (s1.size() != strlen(s2))
+    result = false;
+  for (size_t i = 0; result && i < s1.size(); i++) {
+    if (toupper(s1.at(i)) != toupper(s2[i]))
+      result = false;
+  }
+  return result;
+}
 
 static asmjit::X86Reg getXmmRegFromName(std::string name) {
     using namespace asmjit::x86;
@@ -106,10 +118,10 @@ getGpRegFromName(std::string name) {
 
 static asmjit::X86Reg
 getRegFromName(std::string name) {
-  if (name.at(0) == 'x') {
+  if (tolower(name.at(0)) == 'x') {
       return getXmmRegFromName(name);
-  } else if (name.at(0) == 'y') {
-      return  getYmmRegFromName(name);
+  } else if (tolower(name.at(0)) == 'y') {
+      return getYmmRegFromName(name);
   } else
       return getGpRegFromName(name);
 }
