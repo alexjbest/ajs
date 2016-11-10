@@ -4,6 +4,7 @@
 #include <sstream>
 #include <algorithm>
 #include <iostream>
+#include <cassert>
 
 #define FPRINTF(__f__, ...) \
     do{ \
@@ -26,6 +27,11 @@ ularith_div_2ul_ul_ul (unsigned long *q, unsigned long *r,
     : "cc");
 }
 
+template <typename T>
+T *ptr_add_bytes(T *p, size_t n) {
+    assert(n % sizeof(T) == 0);
+    return p + n / sizeof(T);
+}
 
 /* Functor that tests whether a value is in [start, end[.
  * Note that the end value is NOT included in the range, similarly
