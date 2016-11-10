@@ -15,7 +15,7 @@ const char *Line::getOrigLine() const {
 bool Line::hasOption(uint32_t option) const {
     assert(isInstruction());
     assert(option < OptNrOptions);
-    return (options & (1U << option) != 0);
+    return ((options & (1U << option)) != 0);
 }
 
 uint32_t Line::getLabel() const {
