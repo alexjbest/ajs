@@ -1523,6 +1523,9 @@ class ajs {
       times = (int *) ptr_add_bytes(allData, timesStart);
       gmp_randclear(rng);
 
+      cout << "# Data arrays: " << (void *) mpn[0] << ", " << (void *) mpn[1]
+           << ", " << (void *) mpn[2] << ", " << (void *) mpn[3] << std::endl;
+
       mp_size_t k = 1;
       if (signature.substr(0, 6) == "mod_1_")
         k = signature.at(6) - '0';
@@ -2063,6 +2066,7 @@ int main(int argc, char* argv[])
                       fprintf(stderr, "Invalid character in alignments: %c\n", *c);
                       exit (EXIT_FAILURE);
                   }
+                  c++;
               }
           }
           printf("# Using %zu,%zu,%zu,%zu for data alignments\n",
