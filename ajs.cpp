@@ -1465,12 +1465,15 @@ class ajs {
         return bestTime;
     }
 
-    static size_t round_up(const size_t s, const size_t m)
+    /* Returns the minimal value x s.t. x >= s and x == r (mod m). */
+    static size_t round_up(size_t s, const size_t r, const size_t m)
     {
     	assert(m > 0);
-    	if (s == 0)
-    		return 0;
-    	return ((s - 1) / m + 1) * m;
+    	assert(r < m);
+    	size_t sm = s % m;
+    	if (sm > r)
+    	    s += m;
+        return s - sm + r;
     }
 
     // core superoptimise function, takes a function as a list of Lines, to and
@@ -1480,36 +1483,44 @@ class ajs {
     static double superOptimise(list<int>& bestPerm, vector<Line>& func,
         const int numLabels, int from, int to, const uint64_t
         limbs, string signature, vector<Transform>& transforms,
-        const unsigned long maxPerms, const char *inPermFilename, int nopLine = -1)
+        const unsigned long maxPerms, const char *inPermFilename,
+        const size_t *alignments, int nopLine = -1)
     {
       double bestTime = 0, overhead = 0;
-      uint64_t *mpn1, *mpn2, *mpn3, *mpn4, *result;
+      uint64_t *allData, *mpn[4], *result;
       uint64_t arg1 = 0, arg2 = 0, arg3 = 0, arg4 = 0, arg5 = 0, arg6 = 0;
       size_t resultLen;
 
       // set up arguments for use by function
-      const size_t size1 = round_up((limbs + 1) * sizeof(uint64_t), 16),
-              size2 = round_up(limbs * sizeof(uint64_t), 16),
-              size3 = round_up(limbs * sizeof(uint64_t), 16),
-              size4 = round_up(2 * limbs * sizeof(uint64_t), 16),
-              times_size = TRIALS * sizeof(int),
-              size_total = size1 + size2 + size3 + size4 + times_size;
+      const size_t alignMod = 32;
+      /* How many limbs we want in each operand */
+      const size_t limbSizes[4] = {limbs + 1, limbs, limbs, 2 * limbs};
+      /* Offsets/sizes in bytes of the various operands */
+      size_t alignedStarts[4], timesStart, totalSize = 0;
 
-      mpn1 = (uint64_t*)aligned_alloc(4096, size_total);
-      memset(mpn1, 0, size_total);
-      mpn2 = mpn1 + size1 / sizeof(uint64_t);
-      mpn3 = mpn2 + size2 / sizeof(uint64_t);
-      // rest is a double size mpn, e.g. for output of mpn_mul
-      mpn4 = mpn3 + size3 / sizeof(uint64_t);
-      times = (int *) (mpn4 + size4 / sizeof(uint64_t));
+      for (int i = 0; i < 4; i++) {
+          /* Increase total size to the desired alignment of next operand */
+          totalSize = round_up(totalSize, alignments[i], alignMod);
+          /* Make that the starting address of the next operand */
+          alignedStarts[i] = totalSize;
+          /* Increase total size by size of that operand */
+          totalSize += limbSizes[i] * sizeof(uint64_t);
+      }
+      timesStart = totalSize;
+      totalSize += TRIALS * sizeof(int);
+
+      allData = (uint64_t*)aligned_alloc(4096, totalSize);
+      memset(allData, 0, totalSize);
 
       gmp_randstate_t rng;
       gmp_randinit_default (rng);
       gmp_randseed_ui (rng, 42); /* 42 is a random number */
-      set_random(mpn1, rng, limbs + 1);
-      set_random(mpn2, rng, limbs);
-      set_random(mpn3, rng, limbs);
-      set_random(mpn4, rng, 2*limbs);
+
+      for (int i = 0; i < 4; i++) {
+          mpn[i] = ptr_add_bytes(allData, alignedStarts[i]);
+          set_random(mpn[i], rng, limbSizes[i]);
+      }
+      times = (int *) ptr_add_bytes(allData, timesStart);
       gmp_randclear(rng);
 
       mp_size_t k = 1;
@@ -1517,7 +1528,7 @@ class ajs {
         k = signature.at(6) - '0';
       mp_limb_t db[k + 1], rem[k + 1];
 
-      getArgs(mpn1, mpn2, mpn3, mpn4, limbs, signature, arg1, arg2, arg3, arg4,
+      getArgs(mpn[0], mpn[1], mpn[2], mpn[3], limbs, signature, arg1, arg2, arg3, arg4,
           arg5, arg6, db, rem, result, resultLen);
 
       list<int> idPerm;
@@ -1612,7 +1623,7 @@ class ajs {
             pos = func.erase(pos);
           }
       }
-      free(mpn1);
+      free(allData);
       delete reference;
 
       return bestTime;
@@ -1663,7 +1674,8 @@ class ajs {
         const string signature, const int nopLine, const int loop,
         const string prepend, const string append, const unsigned long maxPerms,
         const int removeLabels, const int includeLeadIn, const char *permfilename,
-        const char *inPermFilename, const char *funcname)
+        const char *inPermFilename, const char *funcname,
+        const size_t *alignments)
     {
       int numLabels = 0;
 
@@ -1728,7 +1740,7 @@ class ajs {
 
       double bestTime = superOptimise(bestPerm, func,
           numLabels, start, end, limbs, signature, transforms, maxPerms,
-          inPermFilename, nopLine);
+          inPermFilename, alignments, nopLine);
 
       list<int>::iterator startIt = bestPerm.begin();
       advance(startIt, start);
@@ -1850,6 +1862,7 @@ void display_usage()
 "  -a/--append <string>    When outputting to file append <string> to the end   \n"
 "  -p/--prepend <string>   When outputting to file prepend <string> at the start\n"
 "  -f/--funcname <string>  Use <string> as name of output function             \n"
+"  -d/--align a0,a1,a2,a3  Align operands at a0 (mod 32), ..., a3 (mod 32)     \n"
 "                                                                              \n"
 "(abbreviations can be used e.g. --sig)                                        \n"
 "                                                                              \n"
@@ -1882,6 +1895,7 @@ int main(int argc, char* argv[])
   const char *permfilename = NULL;
   const char *inPermFilename = NULL;
   const char *funcname = NULL;
+  size_t alignments[4] = {0, 0, 0, 0};
   string signature = "add_n", prepend = "", append = "";
   cpu_set_t cpuset;
 
@@ -1893,7 +1907,10 @@ int main(int argc, char* argv[])
   int option_index = 0;
   static struct option long_options[] = {
     {"append",        required_argument, 0, 'a'},
+    {"inperm",        required_argument, 0, 'b'},
     {"cpu",           required_argument, 0, 'c'},
+    {"align",         required_argument, 0, 'd'},
+    {"funcname",      required_argument, 0, 'f'},
     {"help",          no_argument,       0, 'h'},
     {"include-leadin",no_argument,       0, 'I'},
     {"intel",         no_argument,       0, 'i'},
@@ -1908,12 +1925,10 @@ int main(int argc, char* argv[])
     {"signature",     required_argument, 0, 's'},
     {"verbose",       optional_argument, 0, 'v'},
     {"outperm",       required_argument, 0, 'w'},
-    {"inperm",        required_argument, 0, 'b'},
-    {"funcname",      required_argument, 0, 'f'},
     {0,               0,                 0, 0  }
   };
 
-  while ((c = getopt_long(argc, argv, "a:c:hiIl:L:m:n:o:p:r:Rs:v::w:b:f:",
+  while ((c = getopt_long(argc, argv, "a:b:c:d:f:hiIl:L:m:n:o:p:r:Rs:v::w:",
         long_options, &option_index)) != -1) {
 
     switch (c) {
@@ -2032,6 +2047,28 @@ int main(int argc, char* argv[])
           printf("# Reading permutations to try from %s\n", inPermFilename);
           break;
 
+      case 'd':
+          {
+              const char *c = optarg;
+              for (int i = 0; i < 4; i++) {
+                  char *n;
+                  alignments[i] = strtoul(c, &n, 10);
+                  c = n;
+                  if (alignments[i] % sizeof(uint64_t) != 0) {
+                      fprintf(stderr, "Alignment %zu is not a multiple of %zu\n",
+                              alignments[i], sizeof(uint64_t));
+                      exit (EXIT_FAILURE);
+                  }
+                  if (i < 3 && *c != ',') {
+                      fprintf(stderr, "Invalid character in alignments: %c\n", *c);
+                      exit (EXIT_FAILURE);
+                  }
+              }
+          }
+          printf("# Using %zu,%zu,%zu,%zu for data alignments\n",
+                 alignments[0], alignments[1], alignments[2], alignments[3]);
+          break;
+
       default:
           abort();
     }
@@ -2066,7 +2103,7 @@ int main(int argc, char* argv[])
 
   int rc = ajs::run(inFile, start, end, limbs, outFile, verbose, intelSyntax,
       signature, nopLine, loop, prepend, append, maxPerms, removeLabels, includeLeadIn,
-      permfilename, inPermFilename, funcname);
+      permfilename, inPermFilename, funcname, alignments);
 
   if (do_padding) {
     for (size_t i = 0; i < padding_size; i++) {
