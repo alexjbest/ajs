@@ -8,7 +8,7 @@
 #define LOOPSIZE 1
 #define WARMUP_LENGTH 1000
 #define REPEATS 16
-#define PREFETCH_CALLS 8
+#define PREFETCH_CALLS 16
 #define TIMING_SERIALIZE 1
 #define SKIP_CONTEXT_SWITCHES 1
 /* Define to either 0 or 1: */
