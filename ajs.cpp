@@ -1861,6 +1861,7 @@ void display_usage()
 "  -v/--verbose            Set verbosity level (use -vv...v for higher levels) \n"
 "  -o/--out <file>         Write the final output to <file>                    \n"
 "  -w/--writeperm <file>   Write all optimal permutations to <file>            \n"
+"  -b/--inperm <file>      Read permutations to try from <file>                \n"
 "  -R/--remove-labels      Remove unused labels before optimising              \n"
 "  -a/--append <string>    When outputting to file append <string> to the end   \n"
 "  -p/--prepend <string>   When outputting to file prepend <string> at the start\n"
