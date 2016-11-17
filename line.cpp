@@ -120,6 +120,9 @@ void Line::addRegIn(asmjit::X86Reg reg) {
   // ensure Gp registers are full size
   if (reg.isGp())
     reg = asmjit::X86GpReg(asmjit::kX86RegTypeGpq, reg.getRegIndex(), 8);
+  // ensure SIMD registers are full size
+  if (reg.isXmm() || reg.isYmm())
+    reg = asmjit::X86ZmmReg(asmjit::kX86RegTypeZmm, reg.getRegIndex(), 64);
   regsIn.push_back(reg);
 }
 
@@ -127,6 +130,9 @@ void Line::addRegOut(asmjit::X86Reg reg) {
   // ensure Gp registers are full size
   if (reg.isGp())
     reg = asmjit::X86GpReg(asmjit::kX86RegTypeGpq, reg.getRegIndex(), 8);
+  // ensure SIMD registers are full size
+  if (reg.isXmm() || reg.isYmm())
+    reg = asmjit::X86ZmmReg(asmjit::kX86RegTypeZmm, reg.getRegIndex(), 64);
   regsOut.push_back(reg);
 }
 
