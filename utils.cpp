@@ -204,8 +204,10 @@ readLine(char * &lineBuf, size_t &lineBufSize, FILE *inputFile)
             }
             lineBufSize = newLineBufSize;
             continue;
+        } else {
+          break;
         }
-    } while(0);
+    } while(1);
     return lineBuf;
 }
 
