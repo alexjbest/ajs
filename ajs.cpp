@@ -1683,6 +1683,7 @@ class ajs {
 
       logger.setIndentation("\t");
       logger.addOptions(Logger::kOptionGASFormat);
+      logger.setCommentSep('#');
 
 #ifdef USE_INTEL_PCM
       m = PCM::getInstance();
