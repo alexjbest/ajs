@@ -301,4 +301,38 @@ static inline uint64_t get_diff_timing()
 
 }
 
+#ifdef USE_JEVENTS
+static unsigned long pmc0, pmc1, pmc2, pmc3;
+#endif
+
+void
+readAllPmc()
+{
+#ifdef USE_JEVENTS
+  pmc0 = rdpmc(0);
+  pmc1 = rdpmc(1);
+  pmc2 = rdpmc(2);
+  pmc3 = rdpmc(3);
+#endif
+}
+
+void
+diffAllPmc()
+{
+#ifdef USE_JEVENTS
+  pmc0 = rdpmc(0) - pmc0;
+  pmc1 = rdpmc(1) - pmc1;
+  pmc2 = rdpmc(0) - pmc2;
+  pmc3 = rdpmc(1) - pmc3;
+#endif
+}
+
+void
+printAllPmc()
+{
+#ifdef USE_JEVENTS
+  printf(" (pmc0: %lu, pmc1: %lu, pmc2: %lu, pmc3: %lu)", pmc0, pmc1, pmc2, pmc3);
+#endif
+}
+
 #endif /* RDTSC_H_ */
