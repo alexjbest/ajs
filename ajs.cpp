@@ -1560,12 +1560,12 @@ class ajs {
         assembler.setLogger(&logger);
 
       printf("# Getting timing for empty function\n");
-      unsigned long pmc0 = rdpmc(0), pmc1 = rdpmc(1), pmc2 = rdpmc(2), pmc3 = rdpmc(3);
+      readAllPmc();
       overhead = timeEmpty();
-      pmc0 = rdpmc(0) - pmc0;
-      pmc1 = rdpmc(1) - pmc1;
-      printf("# overhead = %f (pmc0: %lu, pmc1: %lu, pmc2: %lu, pmc3: %lu)\n",
-              overhead, pmc0, pmc1, pmc2, pmc3);
+      diffAllPmc();
+      printf("# overhead = %f", overhead);
+      printAllPmc();
+      printf("\n");
 
       list<int> id_perm;
       for (size_t i = 0; i < func.size(); i++) {
@@ -1573,13 +1573,13 @@ class ajs {
       }
 
       printf("# Getting timing for original function\n");
-      pmc0 = rdpmc(0); pmc1 = rdpmc(1); pmc2 = rdpmc(2); pmc3 = rdpmc(3);
+      readAllPmc();
       double origTime = timeFunc(func, id_perm, numLabels,
           overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
-      pmc0 = rdpmc(0) - pmc0;
-      pmc1 = rdpmc(1) - pmc1;
-      printf("# original sequence: %lf (pmc0: %lu, pmc1: %lu, pmc2: %lu, pmc3: %lu)\n",
-              origTime, pmc0, pmc1, pmc2, pmc3);
+      diffAllPmc();
+      printf("# original sequence: %lf", origTime);
+      printAllPmc();
+      printf("\n");
       resetPermfile(origTime);
 
       if (inPermFilename != NULL) {
