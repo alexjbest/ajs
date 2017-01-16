@@ -1256,6 +1256,28 @@ class ajs {
         // time this permutation
         double newTime = timeFunc(func, perm, numLabels,
             overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+
+        /* If the new timing is promising, try again to see whether it is
+           reproducible. The timing is "promising" if we write a permutation
+           file and new timing is at least as good as the current best (i.e.,
+           one for which we (re-)write the permutation file), or if we don't
+           write and the timing is better (i.e., where we find a new best
+           timing), */
+        if (newTime > 0 && (permfile == NULL && newTime < bestTime ||
+                            permfile != NULL && newTime <= bestTime)) {
+          const int maxRepeats = 3;
+          double newTimeRepeat = newTime;
+          for (int iRepeat = 0; iRepeat < maxRepeats && newTimeRepeat <= bestTime; iRepeat++) {
+            double t = timeFunc(func, perm, numLabels,
+                overhead, true, &transforms, arg1, arg2, arg3, arg4, arg5, arg6);
+            newTimeRepeat = max(newTimeRepeat, t);
+          }
+          if (newTime != newTimeRepeat) {
+              printf("# Timing was %.0f, but repeating %d times resulted in %.0f\n",
+                     newTime, maxRepeats, newTimeRepeat);
+              newTime = newTimeRepeat;
+          }
+        }
         if (newTime > 0 && newTime == bestTime) {
             if (verbose >= 2) {
                 printf("# equally good sequence found: ");
