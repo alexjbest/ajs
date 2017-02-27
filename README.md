@@ -1,7 +1,7 @@
 ajs (asmjit superoptimiser)
 ===========================
 
-AJS is an assembly superoptimiser written for aiding the development of the [mpir library](mpir.org), developed as part of the OpenDreamKit project funded by the Horizon 2020 European Research Infrastructures Work Programme.
+AJS is an assembly superoptimiser written for aiding the development of the [mpir library](http://mpir.org), developed as part of the OpenDreamKit project funded by the Horizon 2020 European Research Infrastructures Work Programme.
 AJS is built using a patched version Petr Kobalicek's asmjit C++ library which can be found at https://github.com/alexjbest/asmjit, so in order to build this using `make` you will need a copy of the asmjit library source (but not the tests and build scripts) in a subfolder of this directory called asmjit, for example by running:
 ```bash
 git clone git@github.com:alexjbest/asmjit.git ~/
@@ -19,8 +19,8 @@ AJS is no longer being actively developed full time, but if you try to use it an
 
 Contributors
 ------------
-Alex J. Best - initial version
-Alexander Kruppa - vast improvements and bugfixes, first useful version?
+ - Alex J. Best - initial version
+ - Alexander Kruppa - vast improvements and bugfixes, first useful version?
 
 Features
 --------
